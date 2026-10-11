@@ -80,6 +80,39 @@ defmodule ArcanumWeb.PostLiveTest do
     end
   end
 
+  test "comment vote buttons are icon-only in a separate left-hand column", context do
+    %{conn: conn, scope: scope, community: community} = context
+    {:ok, post} = Communities.create_post(scope, community, %{title: "Post", body: "Text"})
+    {:ok, comment} = Communities.create_comment(scope, post, %{body: "Comment"})
+    {:ok, reply} = Communities.create_comment(scope, post, %{body: "Reply"}, comment.id)
+    {:ok, view, _} = live(conn, ~p"/communities/#{community}/posts/#{post}")
+
+    for entry <- [comment, reply] do
+      assert has_element?(view, "#comment-votes-#{entry.id} + #comment-content-#{entry.id}")
+
+      assert has_element?(
+               view,
+               "#comment-votes-#{entry.id} #upvote-comment-#{entry.id}[aria-label='Upvote comment']"
+             )
+
+      assert has_element?(
+               view,
+               "#comment-votes-#{entry.id} #downvote-comment-#{entry.id}[aria-label='Downvote comment']"
+             )
+
+      for direction <- ["upvote", "downvote"] do
+        text =
+          view
+          |> element("##{direction}-comment-#{entry.id}")
+          |> render()
+          |> LazyHTML.from_fragment()
+          |> LazyHTML.text()
+
+        assert String.trim(text) == ""
+      end
+    end
+  end
+
   test "refresh redirects when the displayed post no longer exists", context do
     %{conn: conn, scope: scope, community: community} = context
     {:ok, post} = Communities.create_post(scope, community, %{title: "Gone", body: "Text"})
@@ -159,7 +192,8 @@ defmodule ArcanumWeb.PostLiveTest do
     view |> element("#downvote-comment-#{comment.id}") |> render_click()
     assert has_element?(view, "#comment-score-#{comment.id}", "0 points")
     view |> element("#reply-#{comment.id}") |> render_click()
-    assert has_element?(view, "#reply-target")
+    assert has_element?(view, "button#cancel-reply[type='button']")
+    refute has_element?(view, "#reply-target")
     view |> form("#comment-form", comment: %{body: "A reply"}) |> render_change()
     view |> form("#comment-form", comment: %{body: "A reply"}) |> render_submit()
 
@@ -173,9 +207,40 @@ defmodule ArcanumWeb.PostLiveTest do
     assert reply.parent_id == comment.id
     assert has_element?(view, "#comments-#{reply.id}")
     refute has_element?(view, "#reply-target")
+    refute has_element?(view, "#cancel-reply")
     view |> element("#reply-#{reply.id}") |> render_click()
     view |> element("#cancel-reply") |> render_click()
     refute has_element?(view, "#reply-target")
+    refute has_element?(view, "#cancel-reply")
+  end
+
+  test "reply composer moves below the selected comment with nested indentation", context do
+    %{conn: conn, scope: scope, community: community} = context
+    {:ok, post} = Communities.create_post(scope, community, %{title: "Thread", body: "Text"})
+    {:ok, comment} = Communities.create_comment(scope, post, %{body: "Parent"})
+    {:ok, reply} = Communities.create_comment(scope, post, %{body: "Child"}, comment.id)
+    {:ok, view, _} = live(conn, ~p"/communities/#{community}/posts/#{post}")
+    assert has_element?(view, "#new-comment-composer #comment-form")
+
+    view |> element("#reply-#{reply.id}") |> render_click()
+    refute has_element?(view, "#new-comment-composer")
+
+    assert has_element?(
+             view,
+             "#comment-content-#{reply.id} #reply-composer-#{reply.id}.pl-3 #comment-form"
+           )
+
+    view |> form("#comment-form", comment: %{body: "Draft reply"}) |> render_change()
+    assert has_element?(view, "#reply-composer-#{reply.id} textarea", "Draft reply")
+    view |> element("#reply-#{comment.id}") |> render_click()
+    refute has_element?(view, "#reply-composer-#{reply.id}")
+    assert has_element?(view, "#reply-composer-#{comment.id} textarea", "Draft reply")
+
+    view |> form("#comment-form", comment: %{body: ""}) |> render_submit()
+    assert has_element?(view, "#reply-composer-#{comment.id} #comment-form", "can't be blank")
+    view |> element("#cancel-reply") |> render_click()
+    refute has_element?(view, "#reply-composer-#{comment.id}")
+    assert has_element?(view, "#new-comment-composer #comment-form")
   end
 
   test "post routes require login and community membership", context do

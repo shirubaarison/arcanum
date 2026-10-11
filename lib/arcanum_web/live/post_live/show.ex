@@ -94,7 +94,8 @@ defmodule ArcanumWeb.PostLive.Show do
 
     case changeset do
       %Ecto.Changeset{} ->
-        {:noreply, assign(socket, :form, to_form(Map.put(changeset, :action, :validate)))}
+        {:noreply,
+         socket |> assign(:form, to_form(Map.put(changeset, :action, :validate))) |> refresh()}
 
       {:error, reason} ->
         {:noreply, unavailable(socket, reason)}
@@ -119,7 +120,7 @@ defmodule ArcanumWeb.PostLive.Show do
 
       {:error, %Ecto.Changeset{} = changeset} ->
         FailureLog.log("create comment", changeset)
-        {:noreply, assign(socket, :form, to_form(changeset))}
+        {:noreply, socket |> assign(:form, to_form(changeset)) |> refresh()}
 
       {:error, reason} ->
         FailureLog.log("create comment", reason)
@@ -130,7 +131,7 @@ defmodule ArcanumWeb.PostLive.Show do
   def handle_event("reply", %{"id" => id}, socket) do
     case find_comment(socket, id) do
       {:ok, comment} ->
-        {:noreply, assign(socket, :reply_to, comment.id)}
+        {:noreply, socket |> assign(:reply_to, comment.id) |> refresh()}
 
       {:error, reason} ->
         FailureLog.log("reply lookup", reason)
@@ -139,7 +140,7 @@ defmodule ArcanumWeb.PostLive.Show do
   end
 
   def handle_event("cancel_reply", _params, socket),
-    do: {:noreply, assign(socket, :reply_to, nil)}
+    do: {:noreply, socket |> assign(:reply_to, nil) |> refresh()}
 
   def handle_event("vote_post", %{"vote" => value}, socket) do
     vote_result(
@@ -222,75 +223,108 @@ defmodule ArcanumWeb.PostLive.Show do
           :for={{id, comment} <- @streams.comments}
           id={id}
           style={"margin-left: #{min(comment.depth, 6) * 12}px"}
-          class="border-l border-stone-300 pl-3"
+          class="flex items-start gap-3 border-l border-stone-300 pl-3"
         >
-          <p class="break-all text-xs text-stone-500">
-            <.link
-              id={"comment-author-#{comment.id}"}
-              navigate={~p"/#{comment.author.username}"}
-              class="hover:underline"
-            >{comment.author.username}</.link>
-            · <span id={"comment-score-#{comment.id}"}>{comment.score} points</span>
-            · <.local_time id={"comment-time-#{comment.id}"} value={comment.inserted_at} />
-          </p>
-          <p class="mt-2 whitespace-pre-wrap break-words">{comment.body}</p>
-          <div class="mt-2 flex gap-3 text-xs">
+          <div
+            id={"comment-votes-#{comment.id}"}
+            class="flex shrink-0 flex-col items-center gap-1 text-stone-500"
+          >
             <button
               id={"upvote-comment-#{comment.id}"}
+              type="button"
               phx-click="vote_comment"
               phx-value-id={comment.id}
               phx-value-vote={if(comment.my_vote == 1, do: 0, else: 1)}
               aria-pressed={to_string(comment.my_vote == 1)}
-              class={["cursor-pointer hover:underline", comment.my_vote == 1 && "text-blue-600"]}
-            ><.icon name="hero-chevron-up" class="size-3" /> upvote</button>
+              aria-label="Upvote comment"
+              class={[
+                "cursor-pointer rounded p-1 transition-colors hover:bg-blue-50 hover:text-blue-600 focus-visible:outline-2 focus-visible:outline-blue-600",
+                comment.my_vote == 1 && "text-blue-600"
+              ]}
+            ><.icon name="hero-chevron-up" class="size-4" /></button>
             <button
               id={"downvote-comment-#{comment.id}"}
+              type="button"
               phx-click="vote_comment"
               phx-value-id={comment.id}
               phx-value-vote={if(comment.my_vote == -1, do: 0, else: -1)}
               aria-pressed={to_string(comment.my_vote == -1)}
-              class={["cursor-pointer hover:underline", comment.my_vote == -1 && "text-blue-600"]}
-            ><.icon name="hero-chevron-down" class="size-3" /> downvote</button>
+              aria-label="Downvote comment"
+              class={[
+                "cursor-pointer rounded p-1 transition-colors hover:bg-blue-50 hover:text-blue-600 focus-visible:outline-2 focus-visible:outline-blue-600",
+                comment.my_vote == -1 && "text-blue-600"
+              ]}
+            ><.icon name="hero-chevron-down" class="size-4" /></button>
+          </div>
+          <div id={"comment-content-#{comment.id}"} class="min-w-0 flex-1">
+            <p class="break-all text-xs text-stone-500">
+              <.link
+                id={"comment-author-#{comment.id}"}
+                navigate={~p"/#{comment.author.username}"}
+                class="hover:underline"
+              >{comment.author.username}</.link>
+              · <span id={"comment-score-#{comment.id}"}>{comment.score} points</span>
+              · <.local_time id={"comment-time-#{comment.id}"} value={comment.inserted_at} />
+            </p>
+            <p class="mt-2 whitespace-pre-wrap break-words">{comment.body}</p>
             <button
               id={"reply-#{comment.id}"}
               phx-click="reply"
               phx-value-id={comment.id}
-              class="cursor-pointer hover:underline"
+              class="mt-2 cursor-pointer text-xs hover:underline"
             >reply</button>
+            <div
+              :if={@reply_to == comment.id}
+              id={"reply-composer-#{comment.id}"}
+              class="mt-4 border-l border-stone-300 pl-3"
+            >
+              <.comment_form form={@form} reply_to={@reply_to} />
+            </div>
           </div>
         </article>
       </div>
-      <.form
-        for={@form}
-        id="comment-form"
-        phx-change="validate_comment"
-        phx-submit="comment"
-        class="mt-6 max-w-2xl space-y-3"
-      >
-        <p :if={@reply_to} id="reply-target" class="text-xs text-stone-500">
-          Replying to comment #{@reply_to}.
-          <button
-            type="button"
-            id="cancel-reply"
-            phx-click="cancel_reply"
-            class="cursor-pointer underline"
-          >cancel</button>
-        </p>
-        <.input
-          field={@form[:body]}
-          type="textarea"
-          label={if(@reply_to, do: "Your reply", else: "Your comment")}
-          required
-          rows="4"
-          class="community-input"
-        />
+      <div :if={is_nil(@reply_to)} id="new-comment-composer" class="mt-6 max-w-2xl">
+        <.comment_form form={@form} />
+      </div>
+    </Layouts.app>
+    """
+  end
+
+  attr :form, :any, required: true
+  attr :reply_to, :integer, default: nil
+
+  defp comment_form(assigns) do
+    ~H"""
+    <.form
+      for={@form}
+      id="comment-form"
+      phx-change="validate_comment"
+      phx-submit="comment"
+      class="max-w-2xl space-y-3"
+    >
+      <.input
+        field={@form[:body]}
+        type="textarea"
+        label={if(@reply_to, do: "Your reply", else: "Your comment")}
+        required
+        rows="4"
+        class="community-input"
+      />
+      <div class="flex items-center gap-2">
         <button id="submit-comment" class="community-button" phx-disable-with="Posting...">{if(
           @reply_to,
-          do: "Add reply",
+          do: "Reply",
           else: "Add comment"
         )}</button>
-      </.form>
-    </Layouts.app>
+        <button
+          :if={@reply_to}
+          type="button"
+          id="cancel-reply"
+          phx-click="cancel_reply"
+          class="cursor-pointer rounded border border-stone-300 px-3 py-1.5 text-sm text-stone-600 transition-colors hover:border-stone-400 hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-blue-600"
+        >Cancel</button>
+      </div>
+    </.form>
     """
   end
 end
