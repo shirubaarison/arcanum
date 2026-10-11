@@ -48,7 +48,7 @@ defmodule ArcanumWeb.UserLive.Registration do
           />
 
           <p class="text-xs text-stone-500">
-            We'll email you a link to confirm your account.
+            We'll email you a link to activate your account and choose a password.
           </p>
           <button id="create-account" phx-disable-with="Creating account..." class="community-button">
             Create an account

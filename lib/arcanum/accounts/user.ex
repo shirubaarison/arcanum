@@ -104,6 +104,13 @@ defmodule Arcanum.Accounts.User do
     |> validate_password(opts)
   end
 
+  def activation_changeset(user, attrs, opts \\ []) do
+    user
+    |> password_changeset(attrs, Keyword.put(opts, :hash_password, false))
+    |> validate_confirmation(:password, required: true)
+    |> maybe_hash_password(opts)
+  end
+
   defp validate_password(changeset, opts) do
     changeset
     |> validate_required([:password])

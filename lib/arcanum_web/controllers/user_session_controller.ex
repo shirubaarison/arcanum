@@ -14,7 +14,19 @@ defmodule ArcanumWeb.UserSessionController do
 
   # magic link login
   defp create(conn, %{"user" => %{"token" => token} = user_params}, info) do
-    case Accounts.login_user_by_magic_link(token) do
+    result =
+      case Accounts.get_user_by_magic_link_token(token) do
+        %Arcanum.Accounts.User{confirmed_at: nil} ->
+          Accounts.activate_user_by_magic_link(token, user_params)
+
+        %Arcanum.Accounts.User{} ->
+          Accounts.login_user_by_magic_link(token)
+
+        nil ->
+          {:error, :not_found}
+      end
+
+    case result do
       {:ok, {user, tokens_to_disconnect}} ->
         UserAuth.disconnect_sessions(tokens_to_disconnect)
 

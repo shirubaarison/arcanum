@@ -262,6 +262,32 @@ defmodule Arcanum.Accounts do
     end
   end
 
+  @doc """
+  Sets a password and confirms an account using proof of email ownership.
+  Consumes all existing tokens atomically. Already-confirmed accounts cannot
+  use activation links to overwrite their password.
+  """
+  def activate_user_by_magic_link(token, attrs) do
+    with {:ok, query} <- UserToken.verify_magic_link_token_query(token),
+         {%User{id: id, confirmed_at: nil}, _} <- Repo.one(query) do
+      Repo.transact(fn ->
+        user = Repo.one!(from u in User, where: u.id == ^id, lock: "FOR UPDATE")
+
+        with nil <- user.confirmed_at,
+             {%User{id: ^id}, _} <- Repo.one(query) do
+          user
+          |> User.activation_changeset(attrs)
+          |> User.confirm_changeset()
+          |> update_user_and_delete_all_tokens()
+        else
+          _ -> {:error, :not_found}
+        end
+      end)
+    else
+      _ -> {:error, :not_found}
+    end
+  end
+
   @doc ~S"""
   Delivers the update email instructions to the given user.
 
