@@ -4,7 +4,7 @@ defmodule ArcanumWeb.CommunityLive.Show do
   alias Arcanum.Communities
 
   @impl true
-  def mount(_params, _session, socket), do: {:ok, socket}
+  def mount(_params, _session, socket), do: {:ok, assign(socket, :subscribed_community_id, nil)}
 
   @impl true
   def handle_params(%{"id" => id}, _uri, socket) do
@@ -13,6 +13,7 @@ defmodule ArcanumWeb.CommunityLive.Show do
 
     {:noreply,
      socket
+     |> subscribe(community)
      |> assign(
        community: community,
        page_title: community.name,
@@ -26,6 +27,43 @@ defmodule ArcanumWeb.CommunityLive.Show do
        |> put_flash(:error, "Community not found or you don't have access.")
        |> push_navigate(to: ~p"/communities")}
   end
+
+  defp subscribe(socket, community) do
+    if connected?(socket) and socket.assigns.subscribed_community_id != community.id do
+      if socket.assigns.subscribed_community_id do
+        Communities.unsubscribe_community(
+          socket.assigns.current_scope,
+          %Arcanum.Communities.Community{id: socket.assigns.subscribed_community_id}
+        )
+      end
+
+      Communities.subscribe_community(socket.assigns.current_scope, community)
+      assign(socket, :subscribed_community_id, community.id)
+    else
+      socket
+    end
+  end
+
+  @impl true
+  def handle_info({:community_changed, id}, %{assigns: %{community: %{id: id}}} = socket) do
+    scope = socket.assigns.current_scope
+    community = Communities.get_community!(scope, id)
+
+    {:noreply,
+     socket
+     |> assign(community: community, page_title: community.name)
+     |> stream(:posts, Communities.list_posts(scope, community), reset: true)}
+  rescue
+    Ecto.NoResultsError ->
+      Communities.unsubscribe_community(socket.assigns.current_scope, socket.assigns.community)
+
+      {:noreply,
+       socket
+       |> put_flash(:error, "Community not found or you don't have access.")
+       |> push_navigate(to: ~p"/communities")}
+  end
+
+  def handle_info({:community_changed, _id}, socket), do: {:noreply, socket}
 
   @impl true
   def handle_event("validate", %{"post" => attrs}, socket) do

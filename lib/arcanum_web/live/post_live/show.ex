@@ -4,7 +4,8 @@ defmodule ArcanumWeb.PostLive.Show do
   alias Arcanum.Communities
 
   @impl true
-  def mount(_params, _session, socket), do: {:ok, assign(socket, :reply_to, nil)}
+  def mount(_params, _session, socket),
+    do: {:ok, assign(socket, reply_to: nil, subscribed_community_id: nil)}
 
   @impl true
   def handle_params(%{"community_id" => community_id, "id" => id}, _uri, socket) do
@@ -14,6 +15,7 @@ defmodule ArcanumWeb.PostLive.Show do
 
     {:noreply,
      socket
+     |> subscribe(community)
      |> assign(
        community: community,
        post: post,
@@ -28,6 +30,38 @@ defmodule ArcanumWeb.PostLive.Show do
        |> put_flash(:error, "Post not found or you don't have access.")
        |> push_navigate(to: ~p"/communities")}
   end
+
+  defp subscribe(socket, community) do
+    if connected?(socket) and socket.assigns.subscribed_community_id != community.id do
+      if socket.assigns.subscribed_community_id do
+        Communities.unsubscribe_community(
+          socket.assigns.current_scope,
+          %Arcanum.Communities.Community{id: socket.assigns.subscribed_community_id}
+        )
+      end
+
+      Communities.subscribe_community(socket.assigns.current_scope, community)
+      assign(socket, :subscribed_community_id, community.id)
+    else
+      socket
+    end
+  end
+
+  @impl true
+  def handle_info({:community_changed, id}, %{assigns: %{community: %{id: id}}} = socket) do
+    community = Communities.get_community!(socket.assigns.current_scope, id)
+    {:noreply, socket |> assign(:community, community) |> refresh()}
+  rescue
+    Ecto.NoResultsError ->
+      Communities.unsubscribe_community(socket.assigns.current_scope, socket.assigns.community)
+
+      {:noreply,
+       socket
+       |> put_flash(:error, "Post not found or you don't have access.")
+       |> push_navigate(to: ~p"/communities")}
+  end
+
+  def handle_info({:community_changed, _id}, socket), do: {:noreply, socket}
 
   defp refresh(socket) do
     scope = socket.assigns.current_scope

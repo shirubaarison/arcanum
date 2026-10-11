@@ -16,6 +16,18 @@ defmodule Arcanum.Communities do
   alias Arcanum.Communities.{Post, Comment, PostVote, CommentVote}
   alias Arcanum.Repo
 
+  @doc "Subscribes the caller to ID-only notifications for an accessible community."
+  def subscribe_community(scope, %Community{id: id}) do
+    get_community!(scope, id)
+    Phoenix.PubSub.subscribe(Arcanum.PubSub, community_topic(id))
+  end
+
+  def unsubscribe_community(%Scope{}, %Community{id: id}) do
+    Phoenix.PubSub.unsubscribe(Arcanum.PubSub, community_topic(id))
+  end
+
+  defp community_topic(id), do: "community:#{id}"
+
   @doc "Lists the caller's active communities."
   def list_communities(%Scope{user: %User{id: user_id}}) do
     user_id |> accessible_communities() |> order_by([c], asc: c.id) |> Repo.all()
@@ -119,7 +131,8 @@ defmodule Arcanum.Communities do
             limit: 20,
             select: %{id: u.id, username: u.username}
         )
-      end
+      end,
+      false
     )
   end
 
@@ -321,18 +334,26 @@ defmodule Arcanum.Communities do
   end
 
   # Serialize all mutations for a community before checking current permissions.
-  defp mutate(scope, id, fun) do
-    transaction(fn ->
-      community =
-        Repo.one(
-          from c in Community, where: c.id == ^id and is_nil(c.deleted_at), lock: "FOR UPDATE"
-        )
+  defp mutate(scope, id, fun, notify? \\ true) do
+    result =
+      transaction(fn ->
+        community =
+          Repo.one(
+            from c in Community, where: c.id == ^id and is_nil(c.deleted_at), lock: "FOR UPDATE"
+          )
 
-      authorize!(community != nil)
-      caller = caller_membership(scope, id)
-      authorize!(caller != nil)
-      fun.(community, caller)
-    end)
+        authorize!(community != nil)
+        caller = caller_membership(scope, id)
+        authorize!(caller != nil)
+        fun.(community, caller)
+      end)
+
+    # Publish after the transaction succeeds, never including private content.
+    if notify? and match?({:ok, _}, result) do
+      Phoenix.PubSub.broadcast(Arcanum.PubSub, community_topic(id), {:community_changed, id})
+    end
+
+    result
   end
 
   defp get_membership!(community_id, id) do
