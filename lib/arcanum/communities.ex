@@ -12,8 +12,7 @@ defmodule Arcanum.Communities do
   import Ecto.Query
 
   alias Arcanum.Accounts.{Scope, User}
-  alias Arcanum.Communities.{Community, CommunityMembership}
-  alias Arcanum.Communities.{Post, Comment, PostVote, CommentVote}
+  alias Arcanum.Communities.{Comment, CommentVote, Community, CommunityMembership, Post, PostVote}
   alias Arcanum.Repo
 
   @doc "Subscribes the caller to ID-only notifications for an accessible community."

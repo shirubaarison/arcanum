@@ -1,4 +1,6 @@
 defmodule ArcanumWeb.UserAuth do
+  @moduledoc "Handles authenticated scopes, sessions, and login requirements."
+
   use ArcanumWeb, :verified_routes
 
   import Plug.Conn

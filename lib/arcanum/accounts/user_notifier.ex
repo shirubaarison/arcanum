@@ -1,8 +1,10 @@
 defmodule Arcanum.Accounts.UserNotifier do
+  @moduledoc "Delivers account confirmation, login, and email-change instructions."
+
   import Swoosh.Email
 
-  alias Arcanum.Mailer
   alias Arcanum.Accounts.User
+  alias Arcanum.Mailer
 
   # Delivers the email using the application mailer.
   defp deliver(recipient, subject, body) do

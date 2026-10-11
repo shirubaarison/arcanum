@@ -2,7 +2,7 @@ defmodule ArcanumWeb.CommunityLive.Edit do
   use ArcanumWeb, :live_view
 
   alias Arcanum.Communities
-  alias Arcanum.Communities.CommunityMembership
+  alias Arcanum.Communities.{Community, CommunityMembership}
 
   @impl true
   def mount(_params, _session, socket) do
@@ -34,7 +34,7 @@ defmodule ArcanumWeb.CommunityLive.Edit do
       community: community,
       page_title: community.name,
       role: caller.role,
-      form: to_form(Arcanum.Communities.Community.changeset(community, %{})),
+      form: to_form(Community.changeset(community, %{})),
       member_form: to_form(member_changeset(%{query: socket.assigns.member_query}), as: :member)
     )
     |> stream(:memberships, memberships, reset: true)
@@ -43,7 +43,7 @@ defmodule ArcanumWeb.CommunityLive.Edit do
 
   @impl true
   def handle_event("validate", %{"community" => attrs}, socket) do
-    changeset = Arcanum.Communities.Community.changeset(socket.assigns.community, attrs)
+    changeset = Community.changeset(socket.assigns.community, attrs)
     {:noreply, assign(socket, :form, to_form(Map.put(changeset, :action, :validate)))}
   end
 

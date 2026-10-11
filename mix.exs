@@ -41,6 +41,7 @@ defmodule Arcanum.MixProject do
   defp deps do
     [
       {:bcrypt_elixir, "~> 3.0"},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:phoenix, "~> 1.8.15"},
       {:phoenix_ecto, "~> 4.5"},
       {:ecto_sql, "~> 3.13"},
@@ -96,7 +97,13 @@ defmodule Arcanum.MixProject do
         "esbuild arcanum --minify",
         "phx.digest"
       ],
-      precommit: ["compile --warnings-as-errors", "deps.unlock --unused", "format", "test"]
+      precommit: [
+        "compile --warnings-as-errors",
+        "deps.unlock --unused",
+        "format",
+        "credo --strict",
+        "test"
+      ]
     ]
   end
 end

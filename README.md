@@ -31,6 +31,11 @@ ownership has been verified.
 
 Ready to run in production? Please [check our deployment guides](https://phoenix.hexdocs.pm/deployment.html).
 
+## Code quality
+
+Run `mix credo --strict` for static analysis. Credo is available in development
+and tests, and runs as part of `mix precommit` alongside formatting and tests.
+
 ## Learn more
 
 * Official website: https://www.phoenixframework.org/

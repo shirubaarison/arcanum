@@ -3,6 +3,7 @@ defmodule ArcanumWeb.DevMailboxTest do
 
   import Phoenix.LiveViewTest
   import Arcanum.AccountsFixtures
+  alias Plug.Swoosh.MailboxPreview
   alias Swoosh.Adapters.Local.Storage.Memory
 
   setup do
@@ -28,9 +29,9 @@ defmodule ArcanumWeb.DevMailboxTest do
     id = email.headers["Message-ID"]
 
     preview =
-      Plug.Swoosh.MailboxPreview.call(
+      MailboxPreview.call(
         Plug.Test.conn(:get, "/#{id}"),
-        Plug.Swoosh.MailboxPreview.init([])
+        MailboxPreview.init([])
       )
 
     assert preview.status == 200

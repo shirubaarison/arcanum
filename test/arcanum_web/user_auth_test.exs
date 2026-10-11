@@ -1,10 +1,10 @@
 defmodule ArcanumWeb.UserAuthTest do
   use ArcanumWeb.ConnCase, async: true
 
-  alias Phoenix.LiveView
   alias Arcanum.Accounts
   alias Arcanum.Accounts.Scope
   alias ArcanumWeb.UserAuth
+  alias Phoenix.LiveView
 
   import Arcanum.AccountsFixtures
 

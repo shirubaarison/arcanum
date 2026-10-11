@@ -6,7 +6,7 @@ defmodule Arcanum.Accounts do
   import Ecto.Query, warn: false
   alias Arcanum.Repo
 
-  alias Arcanum.Accounts.{User, UserToken, UserNotifier}
+  alias Arcanum.Accounts.{User, UserNotifier, UserToken}
 
   ## Database getters
 
@@ -270,22 +270,26 @@ defmodule Arcanum.Accounts do
   def activate_user_by_magic_link(token, attrs) do
     with {:ok, query} <- UserToken.verify_magic_link_token_query(token),
          {%User{id: id, confirmed_at: nil}, _} <- Repo.one(query) do
-      Repo.transact(fn ->
-        user = Repo.one!(from u in User, where: u.id == ^id, lock: "FOR UPDATE")
-
-        with nil <- user.confirmed_at,
-             {%User{id: ^id}, _} <- Repo.one(query) do
-          user
-          |> User.activation_changeset(attrs)
-          |> User.confirm_changeset()
-          |> update_user_and_delete_all_tokens()
-        else
-          _ -> {:error, :not_found}
-        end
-      end)
+      activate_verified_user(query, id, attrs)
     else
       _ -> {:error, :not_found}
     end
+  end
+
+  defp activate_verified_user(query, id, attrs) do
+    Repo.transact(fn ->
+      user = Repo.one!(from u in User, where: u.id == ^id, lock: "FOR UPDATE")
+
+      with nil <- user.confirmed_at,
+           {%User{id: ^id}, _} <- Repo.one(query) do
+        user
+        |> User.activation_changeset(attrs)
+        |> User.confirm_changeset()
+        |> update_user_and_delete_all_tokens()
+      else
+        _ -> {:error, :not_found}
+      end
+    end)
   end
 
   @doc ~S"""

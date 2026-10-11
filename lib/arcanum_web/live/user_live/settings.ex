@@ -2,6 +2,7 @@ defmodule ArcanumWeb.UserLive.Settings do
   use ArcanumWeb, :live_view
 
   alias Arcanum.Accounts
+  alias Arcanum.Accounts.Scope
 
   @impl true
   def render(assigns) do
@@ -144,10 +145,10 @@ defmodule ArcanumWeb.UserLive.Settings do
       {:ok, user} ->
         {:noreply,
          socket
-         |> assign(:current_scope, Arcanum.Accounts.Scope.for_user(user))
+         |> assign(:current_scope, Scope.for_user(user))
          |> assign(
            :username_form,
-           to_form(Accounts.change_user_username(Arcanum.Accounts.Scope.for_user(user)))
+           to_form(Accounts.change_user_username(Scope.for_user(user)))
          )
          |> put_flash(:info, "Username updated.")}
 
