@@ -10,6 +10,7 @@ defmodule Arcanum.MixProject do
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
+      dialyzer: [plt_add_apps: [:mix, :ex_unit]],
       compilers: [:phoenix_live_view] ++ Mix.compilers(),
       listeners: [Phoenix.CodeReloader]
     ]
@@ -27,7 +28,7 @@ defmodule Arcanum.MixProject do
 
   def cli do
     [
-      preferred_envs: [precommit: :test]
+      preferred_envs: [dialyzer: :test, precommit: :test]
     ]
   end
 
@@ -42,6 +43,7 @@ defmodule Arcanum.MixProject do
     [
       {:bcrypt_elixir, "~> 3.0"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:phoenix, "~> 1.8.15"},
       {:phoenix_ecto, "~> 4.5"},
       {:ecto_sql, "~> 3.13"},
@@ -102,6 +104,7 @@ defmodule Arcanum.MixProject do
         "deps.unlock --unused",
         "format",
         "credo --strict",
+        "dialyzer",
         "test"
       ]
     ]

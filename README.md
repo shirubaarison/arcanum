@@ -33,8 +33,13 @@ Ready to run in production? Please [check our deployment guides](https://phoenix
 
 ## Code quality
 
-Run `mix credo --strict` for static analysis. Credo is available in development
-and tests, and runs as part of `mix precommit` alongside formatting and tests.
+Run `mix credo --strict` for linting and `mix dialyzer` for type analysis.
+Both tools are available in development and tests and run as part of
+`mix precommit` alongside formatting and tests.
+
+Dialyzer runs in the test environment so it also checks compiled test helpers.
+Its first run builds a dependency type cache (PLT) and can take several minutes.
+The cache is stored under the ignored `_build/` directory; later runs reuse it.
 
 ## Learn more
 
