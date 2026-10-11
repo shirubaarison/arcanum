@@ -36,6 +36,8 @@ Ready to run in production? Please [check our deployment guides](https://phoenix
 Profiles live at `/<username>` and require login. Other users see only posts
 from active communities that both accounts currently belong to. Your own profile
 shows your posts from your active communities. Email addresses are never exposed.
+Profile karma is the net total of votes received on posts and comments in those
+same visible communities, and updates live when votes change.
 
 Community URLs use `/communities/<name>` rather than database IDs. Names are
 unique across the application (case-insensitive), including deleted communities;

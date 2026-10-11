@@ -40,7 +40,7 @@ defmodule ArcanumWeb.UserLive.Profile do
 
     socket
     |> sync_subscriptions(communities)
-    |> assign(:post_count, length(posts))
+    |> assign(post_count: length(posts), karma: Communities.user_karma(scope, profile))
     |> stream(:posts, posts, reset: true)
   end
 
@@ -97,6 +97,13 @@ defmodule ArcanumWeb.UserLive.Profile do
         </div>
         <p id="profile-joined" class="mt-2 text-xs text-stone-500">
           Joined {Calendar.strftime(@profile.inserted_at, "%b %d, %Y")}
+        </p>
+        <p
+          class="mt-3 text-sm text-stone-600"
+          title="Net post and comment votes in your shared communities"
+        >
+          <span id="profile-karma" class="font-semibold tabular-nums text-blue-600">{@karma}</span>
+          karma
         </p>
       </section>
 

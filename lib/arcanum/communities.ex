@@ -263,6 +263,34 @@ defmodule Arcanum.Communities do
     )
   end
 
+  @doc "Sums post and comment votes received by a user in active communities shared with the viewer."
+  def user_karma(%Scope{user: %User{id: viewer_id}}, %{id: profile_user_id}) do
+    community_ids =
+      viewer_id |> shared_communities(profile_user_id) |> exclude(:select) |> select([c], c.id)
+
+    post_karma =
+      Repo.one(
+        from v in PostVote,
+          join: p in Post,
+          on: p.id == v.post_id,
+          where: p.author_id == ^profile_user_id and p.community_id in subquery(community_ids),
+          select: coalesce(sum(v.value), 0)
+      )
+
+    comment_karma =
+      Repo.one(
+        from v in CommentVote,
+          join: c in Comment,
+          on: c.id == v.comment_id,
+          join: p in Post,
+          on: p.id == c.post_id,
+          where: c.author_id == ^profile_user_id and p.community_id in subquery(community_ids),
+          select: coalesce(sum(v.value), 0)
+      )
+
+    post_karma + comment_karma
+  end
+
   @doc "Gets a post only within an accessible community."
   def get_post!(%Scope{user: %User{id: user_id}} = scope, %Community{id: community_id}, id) do
     get_community!(scope, community_id)

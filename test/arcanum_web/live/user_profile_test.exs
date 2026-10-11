@@ -37,6 +37,7 @@ defmodule ArcanumWeb.UserProfileTest do
 
     assert has_element?(view, "#profile-username", author.user.username)
     assert has_element?(view, "#profile-joined")
+    assert has_element?(view, "#profile-karma", "0")
     assert has_element?(view, "#profile-post-#{visible.id}")
     refute has_element?(view, "#profile-post-#{hidden.id}")
     assert has_element?(view, "#profile-post-count", "1")
@@ -82,6 +83,7 @@ defmodule ArcanumWeb.UserProfileTest do
 
     {:ok, _} = Communities.vote_post(viewer, visible, 1)
     assert has_element?(view, "#profile-post-score-#{visible.id}", "1 points")
+    assert has_element?(view, "#profile-karma", "1")
   end
 
   test "live profile removes posts when the viewer loses membership", context do
@@ -90,10 +92,36 @@ defmodule ArcanumWeb.UserProfileTest do
 
     {:ok, view, _} = live(log_in_user(conn, viewer.user), ~p"/#{author.user.username}")
     {:ok, _} = Communities.vote_post(viewer, visible, 1)
+    assert has_element?(view, "#profile-karma", "1")
     {:ok, _} = Communities.remove_member(author, membership)
 
     refute has_element?(view, "#profile-post-#{visible.id}")
     assert has_element?(view, "#profile-post-count", "0")
+    assert has_element?(view, "#profile-karma", "0")
+  end
+
+  test "karma updates live for comment votes and cleared votes", context do
+    %{conn: conn, author: author, viewer: viewer, visible: post} = context
+    {:ok, comment} = Communities.create_comment(author, post, %{body: "Comment"})
+    {:ok, view, _} = live(log_in_user(conn, viewer.user), ~p"/#{author.user.username}")
+    assert has_element?(view, "#profile-karma", "0")
+
+    {:ok, _} = Communities.vote_comment(viewer, comment, 1)
+    assert has_element?(view, "#profile-karma", "1")
+    {:ok, _} = Communities.vote_comment(viewer, comment, -1)
+    assert has_element?(view, "#profile-karma", "-1")
+    {:ok, _} = Communities.vote_comment(viewer, comment, 0)
+    assert has_element?(view, "#profile-karma", "0")
+  end
+
+  test "own karma includes private votes while another user's view excludes them", context do
+    %{conn: conn, author: author, viewer: viewer, hidden: hidden} = context
+    {:ok, _} = Communities.vote_post(author, hidden, 1)
+    {:ok, own, _} = live(log_in_user(conn, author.user), ~p"/#{author.user.username}")
+    assert has_element?(own, "#profile-karma", "1")
+
+    {:ok, other, _} = live(log_in_user(conn, viewer.user), ~p"/#{author.user.username}")
+    assert has_element?(other, "#profile-karma", "0")
   end
 
   test "author names link to profiles from feeds, posts and comments", context do
