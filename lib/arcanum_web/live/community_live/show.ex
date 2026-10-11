@@ -209,7 +209,13 @@ defmodule ArcanumWeb.CommunityLive.Show do
                 class="break-words font-medium hover:underline"
               >{post.title}</.link>
               <p class="mt-1 break-all text-xs text-stone-500">
-                by {post.author.username} · {Calendar.strftime(post.inserted_at, "%b %d, %Y")} ·
+                by
+                <.link
+                  id={"post-author-#{post.id}"}
+                  navigate={~p"/#{post.author.username}"}
+                  class="hover:underline"
+                >{post.author.username}</.link>
+                · {Calendar.strftime(post.inserted_at, "%b %d, %Y")} ·
                 <.link navigate={~p"/communities/#{@community}/posts/#{post}"} class="hover:underline">comments</.link>
               </p>
             </div>

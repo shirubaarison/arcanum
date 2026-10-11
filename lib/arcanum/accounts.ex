@@ -6,7 +6,7 @@ defmodule Arcanum.Accounts do
   import Ecto.Query, warn: false
   alias Arcanum.Repo
 
-  alias Arcanum.Accounts.{User, UserNotifier, UserToken}
+  alias Arcanum.Accounts.{Scope, User, UserNotifier, UserToken}
 
   ## Database getters
 
@@ -59,6 +59,18 @@ defmodule Arcanum.Accounts do
 
   """
   def get_user!(id), do: Repo.get!(User, id)
+
+  @doc "Gets a profile for an authenticated viewer, exposing no account credentials or email."
+  def get_user_profile(%Scope{user: %User{}}, username) when is_binary(username) do
+    case Repo.one(
+           from u in User,
+             where: u.username == ^String.downcase(username),
+             select: %{id: u.id, username: u.username, inserted_at: u.inserted_at}
+         ) do
+      nil -> {:error, :not_found}
+      profile -> {:ok, profile}
+    end
+  end
 
   ## User registration
 

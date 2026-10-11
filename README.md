@@ -31,12 +31,17 @@ ownership has been verified.
 
 Ready to run in production? Please [check our deployment guides](https://phoenix.hexdocs.pm/deployment.html).
 
-## Community URLs
+## Profiles and community URLs
+
+Profiles live at `/<username>` and require login. Other users see only posts
+from active communities that both accounts currently belong to. Your own profile
+shows your posts from your active communities. Email addresses are never exposed.
 
 Community URLs use `/communities/<name>` rather than database IDs. Names are
 unique across the application (case-insensitive), including deleted communities;
 spaces are URL-encoded. Renaming a community changes its URL. `new` and names
-containing slashes are not allowed.
+containing slashes are not allowed. Usernames are already unique and lowercase;
+application route names are reserved.
 
 Run `mix ecto.migrate` to add the unique community-name index. Existing duplicate
 names must be resolved before the migration can succeed; it does not rename data.

@@ -47,6 +47,9 @@ defmodule Arcanum.Accounts.User do
         message: "must start with a letter and contain only letters, numbers, or underscores"
       )
       |> unique_constraint(:username)
+      |> validate_exclusion(:username, ~w(communities users dev assets images live),
+        message: "is reserved"
+      )
 
     if Keyword.get(opts, :validate_unique, true) do
       unsafe_validate_unique(changeset, :username, Arcanum.Repo)

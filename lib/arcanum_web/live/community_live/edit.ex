@@ -226,7 +226,11 @@ defmodule ArcanumWeb.CommunityLive.Edit do
             id={id}
             class="flex flex-wrap items-center gap-3 py-3"
           >
-            <span class="break-all">{member.user.username}</span>
+            <.link
+              id={"member-profile-#{member.id}"}
+              navigate={~p"/#{member.user.username}"}
+              class="break-all hover:underline"
+            >{member.user.username}</.link>
             <span class="text-xs text-stone-500">{member.role}</span>
             <div
               :if={

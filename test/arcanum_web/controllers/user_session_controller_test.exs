@@ -21,12 +21,12 @@ defmodule ArcanumWeb.UserSessionControllerTest do
       assert redirected_to(conn) == ~p"/"
 
       # Now do a logged in request and assert on the menu
-      conn = get(conn, ~p"/")
+      conn = get(conn, ~p"/communities")
       response = html_response(conn, 200)
 
       assert response
              |> LazyHTML.from_document()
-             |> LazyHTML.query("#current-username")
+             |> LazyHTML.query("#my-profile")
              |> LazyHTML.text() =~ user.username
 
       assert response =~ ~p"/users/settings"
@@ -90,12 +90,12 @@ defmodule ArcanumWeb.UserSessionControllerTest do
       assert redirected_to(conn) == ~p"/"
 
       # Now do a logged in request and assert on the menu
-      conn = get(conn, ~p"/")
+      conn = get(conn, ~p"/communities")
       response = html_response(conn, 200)
 
       assert response
              |> LazyHTML.from_document()
-             |> LazyHTML.query("#current-username")
+             |> LazyHTML.query("#my-profile")
              |> LazyHTML.text() =~ user.username
 
       assert response =~ ~p"/users/settings"
@@ -123,12 +123,12 @@ defmodule ArcanumWeb.UserSessionControllerTest do
       assert Accounts.get_user!(user.id).confirmed_at
 
       # Now do a logged in request and assert on the menu
-      conn = get(conn, ~p"/")
+      conn = get(conn, ~p"/communities")
       response = html_response(conn, 200)
 
       assert response
              |> LazyHTML.from_document()
-             |> LazyHTML.query("#current-username")
+             |> LazyHTML.query("#my-profile")
              |> LazyHTML.text() =~ user.username
 
       assert response =~ ~p"/users/settings"

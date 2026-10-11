@@ -60,6 +60,7 @@ defmodule ArcanumWeb.Router do
       live "/communities/:name/posts/new", CommunityLive.Show, :new_post
       live "/communities/:community_name/posts/:id", PostLive.Show, :show
       live "/communities/:name", CommunityLive.Show, :show
+      live "/:username", UserLive.Profile, :show
     end
 
     post "/users/update-password", UserSessionController, :update_password

@@ -3,6 +3,7 @@ defmodule Arcanum.Communities.NamesTest do
 
   import Arcanum.AccountsFixtures
 
+  alias Arcanum.Accounts
   alias Arcanum.Communities
 
   test "community names are trimmed and unique regardless of case" do
@@ -43,6 +44,22 @@ defmodule Arcanum.Communities.NamesTest do
     for name <- ["new", "NEW", "has/slash"] do
       assert {:error, changeset} = Communities.create_community(scope, %{name: name})
       assert Map.has_key?(errors_on(changeset), :name)
+    end
+  end
+
+  test "usernames remain unique and cannot conflict with application routes" do
+    user = user_fixture(%{username: "alice"})
+
+    assert {:error, changeset} =
+             Accounts.register_user(%{email: unique_user_email(), username: "ALICE"})
+
+    assert %{username: ["has already been taken"]} = errors_on(changeset)
+
+    for username <- ~w(communities users dev assets images live) do
+      assert {:error, changeset} =
+               Accounts.update_user_username(user_scope_fixture(user), %{username: username})
+
+      assert %{username: ["is reserved"]} = errors_on(changeset)
     end
   end
 end

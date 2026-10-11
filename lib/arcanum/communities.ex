@@ -234,6 +234,35 @@ defmodule Arcanum.Communities do
     end
   end
 
+  @doc "Lists active communities that both the viewer and profile user currently belong to."
+  def list_shared_communities(%Scope{user: %User{id: viewer_id}}, %{id: profile_user_id}) do
+    viewer_id
+    |> shared_communities(profile_user_id)
+    |> order_by([c], asc: c.id)
+    |> Repo.all()
+  end
+
+  @doc "Lists a user's posts only in active communities shared with the authenticated viewer."
+  def list_user_posts(%Scope{user: %User{id: viewer_id}}, %{id: profile_user_id}) do
+    community_ids =
+      viewer_id |> shared_communities(profile_user_id) |> exclude(:select) |> select([c], c.id)
+
+    Post
+    |> scored(PostVote, :post_id, viewer_id)
+    |> where([p], p.author_id == ^profile_user_id and p.community_id in subquery(community_ids))
+    |> order_by([p], desc: p.inserted_at, desc: p.id)
+    |> preload(:community)
+    |> Repo.all()
+  end
+
+  defp shared_communities(viewer_id, profile_user_id) do
+    viewer_id
+    |> accessible_communities()
+    |> join(:inner, [c], m in CommunityMembership,
+      on: m.community_id == c.id and m.user_id == ^profile_user_id
+    )
+  end
+
   @doc "Gets a post only within an accessible community."
   def get_post!(%Scope{user: %User{id: user_id}} = scope, %Community{id: community_id}, id) do
     get_community!(scope, community_id)

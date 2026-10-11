@@ -49,7 +49,12 @@ defmodule ArcanumWeb.Layouts do
           </nav>
           <div class="ml-auto flex gap-3">
             <%= if @current_scope do %>
-              <.link navigate={~p"/users/settings"} class="hover:underline">{@current_scope.user.username}</.link>
+              <.link
+                id="my-profile"
+                navigate={~p"/#{@current_scope.user.username}"}
+                class="hover:underline"
+              >{@current_scope.user.username}</.link>
+              <.link id="nav-account-settings" navigate={~p"/users/settings"} class="hover:underline">settings</.link>
               <.link href={~p"/users/log-out"} method="delete" class="hover:underline">log out</.link>
             <% else %>
               <.link navigate={~p"/users/log-in"} class="hover:underline">log in</.link>
