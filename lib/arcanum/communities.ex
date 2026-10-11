@@ -91,6 +91,55 @@ defmodule Arcanum.Communities do
     end)
   end
 
+  @doc "Lists up to 20 non-members by username for authorized owners and admins."
+  def search_available_users(scope, %Community{id: id}, query \\ "") do
+    mutate(
+      scope,
+      id,
+      fn _community, caller ->
+        authorize!(caller.role in [:owner, :admin])
+
+        term = query |> String.trim() |> String.slice(0, 30)
+
+        escaped =
+          term
+          |> String.replace("\\", "\\\\")
+          |> String.replace("%", "\\%")
+          |> String.replace("_", "\\_")
+
+        pattern = "%" <> escaped <> "%"
+
+        member_ids =
+          from m in CommunityMembership, where: m.community_id == ^id, select: m.user_id
+
+        Repo.all(
+          from u in User,
+            where: u.id not in subquery(member_ids) and ilike(u.username, ^pattern),
+            order_by: [asc: u.username, asc: u.id],
+            limit: 20,
+            select: %{id: u.id, username: u.username}
+        )
+      end
+    )
+  end
+
+  @doc "Adds an account selected by ID, checking permissions before looking up the user."
+  def add_member_by_id(scope, %Community{id: id}, user_id) do
+    mutate(scope, id, fn _community, caller ->
+      authorize!(caller.role in [:owner, :admin])
+
+      case Repo.get(User, user_id) do
+        nil ->
+          Repo.rollback(:user_not_found)
+
+        user ->
+          %CommunityMembership{community_id: id, user_id: user.id}
+          |> CommunityMembership.changeset(%{})
+          |> persist(:insert)
+      end
+    end)
+  end
+
   @doc "Adds a registered user by email after checking the caller's permissions."
   def add_member_by_email(scope, %Community{id: id} = community, email) do
     mutate(scope, id, fn _community, caller ->

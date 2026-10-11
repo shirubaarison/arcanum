@@ -5,7 +5,12 @@ defmodule ArcanumWeb.CommunityLive.Edit do
   alias Arcanum.Communities.CommunityMembership
 
   @impl true
-  def mount(_params, _session, socket), do: {:ok, socket}
+  def mount(_params, _session, socket) do
+    {:ok,
+     socket
+     |> assign(:member_query, "")
+     |> stream_configure(:available_users, dom_id: &"available-user-#{&1.id}")}
+  end
 
   @impl true
   def handle_params(%{"id" => id}, _uri, socket) do
@@ -30,9 +35,10 @@ defmodule ArcanumWeb.CommunityLive.Edit do
       page_title: community.name,
       role: caller.role,
       form: to_form(Arcanum.Communities.Community.changeset(community, %{})),
-      member_form: to_form(member_changeset(%{}), as: :member)
+      member_form: to_form(member_changeset(%{query: socket.assigns.member_query}), as: :member)
     )
     |> stream(:memberships, memberships, reset: true)
+    |> refresh_available_users()
   end
 
   @impl true
@@ -69,18 +75,28 @@ defmodule ArcanumWeb.CommunityLive.Edit do
     end
   end
 
-  def handle_event("add_member", %{"member" => attrs}, socket) do
+  def handle_event("search_members", %{"member" => attrs}, socket) do
     changeset = member_changeset(attrs)
+    query = Ecto.Changeset.get_field(changeset, :query) || ""
 
+    {:noreply,
+     socket
+     |> assign(member_query: query, member_form: to_form(changeset, as: :member))
+     |> refresh_available_users()}
+  end
+
+  def handle_event("add_member", %{"id" => id}, socket) do
     result =
-      if changeset.valid? do
-        Communities.add_member_by_email(
-          socket.assigns.current_scope,
-          socket.assigns.community,
-          Ecto.Changeset.get_field(changeset, :email)
-        )
-      else
-        {:error, Map.put(changeset, :action, :insert)}
+      case Integer.parse(id) do
+        {user_id, ""} when user_id > 0 ->
+          Communities.add_member_by_id(
+            socket.assigns.current_scope,
+            socket.assigns.community,
+            user_id
+          )
+
+        _ ->
+          {:error, :user_not_found}
       end
 
     case result do
@@ -91,20 +107,11 @@ defmodule ArcanumWeb.CommunityLive.Edit do
       {:error, :unauthorized} ->
         denied(socket)
 
-      {:error, reason} ->
-        changeset =
-          if not changeset.valid? do
-            Map.put(changeset, :action, :insert)
-          else
-            message =
-              if reason == :user_not_found,
-                do: "No registered user with that email.",
-                else: "Could not add this member. They may already belong to this community."
-
-            changeset |> Ecto.Changeset.add_error(:email, message) |> Map.put(:action, :insert)
-          end
-
-        {:noreply, assign(socket, :member_form, to_form(changeset, as: :member))}
+      {:error, _} ->
+        {:noreply,
+         socket
+         |> refresh_available_users()
+         |> put_flash(:error, "Could not add this account. It may already be a member.")}
     end
   end
 
@@ -144,10 +151,19 @@ defmodule ArcanumWeb.CommunityLive.Edit do
     do: {:noreply, put_flash(socket, :error, "You don't have permission to do that.")}
 
   defp member_changeset(attrs) do
-    {%{}, %{email: :string}}
-    |> Ecto.Changeset.cast(attrs, [:email])
-    |> Ecto.Changeset.validate_required([:email])
-    |> Ecto.Changeset.validate_format(:email, ~r/^[^\s@]+@[^\s@]+$/)
+    {%{}, %{query: :string}}
+    |> Ecto.Changeset.cast(attrs, [:query])
+  end
+
+  defp refresh_available_users(socket) do
+    case Communities.search_available_users(
+           socket.assigns.current_scope,
+           socket.assigns.community,
+           socket.assigns.member_query
+         ) do
+      {:ok, users} -> stream(socket, :available_users, users, reset: true)
+      {:error, :unauthorized} -> stream(socket, :available_users, [], reset: true)
+    end
   end
 
   @impl true
@@ -214,22 +230,42 @@ defmodule ArcanumWeb.CommunityLive.Edit do
             </div>
           </div>
         </div>
-        <.form
-          :if={@role in [:owner, :admin]}
-          for={@member_form}
-          id="member-form"
-          phx-submit="add_member"
-          class="mt-4 max-w-xl space-y-3"
-        >
-          <.input
-            field={@member_form[:email]}
-            type="email"
-            label="Add a registered user by email"
-            required
-            class="community-input"
-          />
-          <button id="add-member" class="community-button" phx-disable-with="Adding...">Add member</button>
-        </.form>
+        <section :if={@role in [:owner, :admin]} id="member-picker" class="mt-6 max-w-xl">
+          <h3 class="font-bold">Add members</h3>
+          <.form
+            for={@member_form}
+            id="member-form"
+            phx-change="search_members"
+            phx-submit="search_members"
+            class="mt-4 max-w-xl space-y-3"
+          >
+            <.input
+              field={@member_form[:query]}
+              type="search"
+              label="Search usernames"
+              placeholder="Type a username..."
+              phx-debounce="250"
+              class="community-input"
+            />
+          </.form>
+          <div id="available-users" phx-update="stream" class="mt-3 divide-y divide-stone-200">
+            <p id="available-users-empty" class="hidden py-3 text-stone-500 only:block">
+              No accounts found.
+            </p>
+            <button
+              :for={{id, user} <- @streams.available_users}
+              id={id}
+              type="button"
+              phx-click="add_member"
+              phx-value-id={user.id}
+              phx-disable-with="Adding..."
+              class="flex w-full cursor-pointer items-center justify-between gap-3 px-2 py-3 text-left transition-colors hover:bg-blue-50 disabled:opacity-50"
+            >
+              <span class="break-all">{user.username}</span>
+              <span class="text-xs text-blue-600">add</span>
+            </button>
+          </div>
+        </section>
       </section>
       <button
         :if={@role == :owner}
