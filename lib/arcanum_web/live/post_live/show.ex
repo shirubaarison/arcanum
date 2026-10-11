@@ -195,7 +195,7 @@ defmodule ArcanumWeb.PostLive.Show do
           navigate={~p"/#{@post.author.username}"}
           class="hover:underline"
         >{@post.author.username}</.link>
-        · {Calendar.strftime(@post.inserted_at, "%b %d, %Y")}
+        · <.local_time id="post-time" value={@post.inserted_at} />
       </p>
       <div class="mt-3 flex items-center gap-3 text-xs">
         <button
@@ -231,6 +231,7 @@ defmodule ArcanumWeb.PostLive.Show do
               class="hover:underline"
             >{comment.author.username}</.link>
             · <span id={"comment-score-#{comment.id}"}>{comment.score} points</span>
+            · <.local_time id={"comment-time-#{comment.id}"} value={comment.inserted_at} />
           </p>
           <p class="mt-2 whitespace-pre-wrap break-words">{comment.body}</p>
           <div class="mt-2 flex gap-3 text-xs">

@@ -57,6 +57,29 @@ defmodule ArcanumWeb.PostLiveTest do
     assert has_element?(view, "#community-name")
   end
 
+  test "posts, comments and replies expose UTC timestamps for viewer-local rendering", context do
+    %{conn: conn, scope: scope, community: community} = context
+    {:ok, post} = Communities.create_post(scope, community, %{title: "Post", body: "Text"})
+    {:ok, comment} = Communities.create_comment(scope, post, %{body: "Comment"})
+    {:ok, reply} = Communities.create_comment(scope, post, %{body: "Reply"}, comment.id)
+    {:ok, feed, _} = live(conn, ~p"/communities/#{community}")
+
+    assert has_element?(
+             feed,
+             "#post-time-#{post.id}[datetime='#{DateTime.to_iso8601(post.inserted_at)}']"
+           )
+
+    {:ok, detail, _} = live(conn, ~p"/communities/#{community}/posts/#{post}")
+    assert has_element?(detail, "#post-time[phx-hook='LocalTime']")
+
+    for entry <- [comment, reply] do
+      assert has_element?(
+               detail,
+               "#comment-time-#{entry.id}[data-utc='#{DateTime.to_iso8601(entry.inserted_at)}'][phx-hook='LocalTime']"
+             )
+    end
+  end
+
   test "refresh redirects when the displayed post no longer exists", context do
     %{conn: conn, scope: scope, community: community} = context
     {:ok, post} = Communities.create_post(scope, community, %{title: "Gone", body: "Text"})

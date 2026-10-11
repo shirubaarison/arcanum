@@ -39,6 +39,7 @@ defmodule ArcanumWeb.UserProfileTest do
     assert has_element?(view, "#profile-joined")
     assert has_element?(view, "#profile-karma", "0")
     assert has_element?(view, "#profile-post-#{visible.id}")
+    assert has_element?(view, "#profile-post-time-#{visible.id}[phx-hook='LocalTime']")
     refute has_element?(view, "#profile-post-#{hidden.id}")
     assert has_element?(view, "#profile-post-count", "1")
     refute has_element?(view, "#profile-settings")

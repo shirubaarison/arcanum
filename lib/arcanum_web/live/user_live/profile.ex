@@ -129,7 +129,7 @@ defmodule ArcanumWeb.UserLive.Profile do
               navigate={~p"/communities/#{post.community}"}
               class="break-words hover:underline"
             >{post.community.name}</.link>
-            · {Calendar.strftime(post.inserted_at, "%b %d, %Y")}
+            · <.local_time id={"profile-post-time-#{post.id}"} value={post.inserted_at} />
           </p>
         </article>
       </div>

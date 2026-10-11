@@ -38,6 +38,10 @@ from active communities that both accounts currently belong to. Your own profile
 shows your posts from your active communities. Email addresses are never exposed.
 Profile karma is the net total of votes received on posts and comments in those
 same visible communities, and updates live when votes change.
+Post and comment timestamps are stored and sent in UTC, then displayed in each
+viewer's browser locale and time zone (including daylight saving). Without
+JavaScript, they display UTC. Run `node --test assets/js/hooks/local_time.test.mjs`
+to check the browser timestamp formatter.
 
 Community URLs use `/communities/<name>` rather than database IDs. Names are
 unique across the application (case-insensitive), including deleted communities;

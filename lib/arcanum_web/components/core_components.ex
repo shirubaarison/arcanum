@@ -32,6 +32,23 @@ defmodule ArcanumWeb.CoreComponents do
   alias Phoenix.HTML.Form
   alias Phoenix.LiveView.JS
 
+  @doc "Renders a UTC timestamp with a browser-local date and time when JavaScript is available."
+  attr :id, :string, required: true
+  attr :value, DateTime, required: true
+
+  def local_time(assigns) do
+    ~H"""
+    <time
+      id={@id}
+      datetime={DateTime.to_iso8601(@value)}
+      data-utc={DateTime.to_iso8601(@value)}
+      title={"UTC: #{Calendar.strftime(@value, "%Y-%m-%d %H:%M:%S")}"}
+      phx-hook="LocalTime"
+      phx-update="ignore"
+    >{Calendar.strftime(@value, "%b %d, %Y, %H:%M UTC")}</time>
+    """
+  end
+
   @doc """
   Renders flash notices.
 

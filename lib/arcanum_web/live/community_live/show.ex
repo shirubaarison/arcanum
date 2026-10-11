@@ -215,7 +215,7 @@ defmodule ArcanumWeb.CommunityLive.Show do
                   navigate={~p"/#{post.author.username}"}
                   class="hover:underline"
                 >{post.author.username}</.link>
-                · {Calendar.strftime(post.inserted_at, "%b %d, %Y")} ·
+                · <.local_time id={"post-time-#{post.id}"} value={post.inserted_at} /> ·
                 <.link navigate={~p"/communities/#{@community}/posts/#{post}"} class="hover:underline">comments</.link>
               </p>
             </div>
