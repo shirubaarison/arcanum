@@ -89,6 +89,12 @@ Dialyzer runs in the test environment so it also checks compiled test helpers.
 Its first run builds a dependency type cache (PLT) and can take several minutes.
 The cache is stored under the ignored `_build/` directory; later runs reuse it.
 
+## Health check
+
+`GET /health` returns HTTP 200 with `{"status":"ok"}` without authentication.
+This is a liveness check only: it does not query PostgreSQL or verify external
+services. Responses are not cached.
+
 ## Continuous integration
 
 GitHub Actions runs on pushes and pull requests, and can also be started manually.

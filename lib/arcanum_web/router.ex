@@ -18,6 +18,12 @@ defmodule ArcanumWeb.Router do
   end
 
   scope "/", ArcanumWeb do
+    pipe_through :api
+
+    get "/health", HealthController, :show
+  end
+
+  scope "/", ArcanumWeb do
     pipe_through :browser
 
     get "/", PageController, :redirect_root

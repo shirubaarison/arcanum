@@ -55,7 +55,7 @@ defmodule Arcanum.Communities.NamesTest do
 
     assert %{username: ["has already been taken"]} = errors_on(changeset)
 
-    for username <- ~w(communities users dev assets images live) do
+    for username <- ~w(communities users dev assets images live health) do
       assert {:error, changeset} =
                Accounts.update_user_username(user_scope_fixture(user), %{username: username})
 
