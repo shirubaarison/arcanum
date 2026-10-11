@@ -8,13 +8,11 @@ defmodule ArcanumWeb.UserLive.Settings do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope}>
-      <div class="text-center">
-        <.header>
-          Account Settings
-          <:subtitle>Manage your account email address and password settings</:subtitle>
-        </.header>
-      </div>
+    <Layouts.app flash={@flash} current_scope={@current_scope} community>
+      <div id="account-settings" class="max-w-xl">
+        <.link navigate={~p"/communities"} class="text-xs text-stone-500 hover:underline">← communities</.link>
+        <h1 class="mt-3 text-xl font-bold">Account Settings</h1>
+        <p class="mt-2 text-stone-600">Manage your username, email address and password.</p>
 
         <.form
           for={@username_form}
@@ -37,55 +35,67 @@ defmodule ArcanumWeb.UserLive.Settings do
           <button id="save-username" class="community-button" phx-disable-with="Saving...">Save username</button>
         </.form>
 
-      <.form for={@email_form} id="email_form" phx-submit="update_email" phx-change="validate_email">
-        <.input
-          field={@email_form[:email]}
-          type="email"
-          label="Email"
-          autocomplete="username"
-          spellcheck="false"
-          required
-        />
-        <.button variant="primary" phx-disable-with="Changing...">Change Email</.button>
-      </.form>
+        <.form
+          for={@email_form}
+          id="email_form"
+          phx-submit="update_email"
+          phx-change="validate_email"
+          class="mt-8 border-t border-stone-200 pt-6 space-y-4"
+        >
+          <h2 class="font-bold">Email address</h2>
+          <.input
+            field={@email_form[:email]}
+            type="email"
+            label="Email"
+            autocomplete="username"
+            spellcheck="false"
+            required
+            class="community-input"
+          />
+          <p class="text-xs text-stone-500">We'll send a confirmation link to your new address.</p>
+          <button id="change-email" class="community-button" phx-disable-with="Changing...">Change Email</button>
+        </.form>
 
-      <div class="divider" />
-
-      <.form
-        for={@password_form}
-        id="password_form"
-        action={~p"/users/update-password"}
-        method="post"
-        phx-change="validate_password"
-        phx-submit="update_password"
-        phx-trigger-action={@trigger_submit}
-      >
-        <input
-          name={@password_form[:email].name}
-          type="hidden"
-          id="hidden_user_email"
-          spellcheck="false"
-          value={@current_email}
-        />
-        <.input
-          field={@password_form[:password]}
-          type="password"
-          label="New password"
-          autocomplete="new-password"
-          spellcheck="false"
-          required
-        />
-        <.input
-          field={@password_form[:password_confirmation]}
-          type="password"
-          label="Confirm new password"
-          autocomplete="new-password"
-          spellcheck="false"
-        />
-        <.button variant="primary" phx-disable-with="Saving...">
-          Save Password
-        </.button>
-      </.form>
+        <.form
+          for={@password_form}
+          id="password_form"
+          action={~p"/users/update-password"}
+          method="post"
+          phx-change="validate_password"
+          phx-submit="update_password"
+          phx-trigger-action={@trigger_submit}
+          class="mt-8 border-t border-stone-200 pt-6 space-y-4"
+        >
+          <h2 class="font-bold">Password</h2>
+          <input
+            name={@password_form[:email].name}
+            type="hidden"
+            id="hidden_user_email"
+            spellcheck="false"
+            value={@current_email}
+          />
+          <.input
+            field={@password_form[:password]}
+            type="password"
+            label="New password"
+            autocomplete="new-password"
+            spellcheck="false"
+            required
+            class="community-input"
+          />
+          <.input
+            field={@password_form[:password_confirmation]}
+            type="password"
+            label="Confirm new password"
+            autocomplete="new-password"
+            spellcheck="false"
+            class="community-input"
+          />
+          <button id="save-password" class="community-button" phx-disable-with="Saving...">
+            Save Password
+          </button>
+        </.form>
+      </div>
     </Layouts.app>
     """
   end

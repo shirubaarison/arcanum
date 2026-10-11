@@ -44,6 +44,26 @@ defmodule ArcanumWeb.UserLive.LoginTest do
   end
 
   describe "user login - password" do
+    test "stay logged in checkbox controls the persistent cookie", %{conn: conn} do
+      user = user_fixture() |> set_password()
+
+      for remember <- [true, false] do
+        {:ok, view, _} = live(conn, ~p"/users/log-in")
+        assert has_element?(view, "#login-remember[type=checkbox]")
+        assert has_element?(view, "#login-submit")
+        refute has_element?(view, "#login-once")
+
+        login =
+          form(view, "#login_form_password",
+            user: %{email: user.email, password: valid_user_password(), remember_me: remember}
+          )
+
+        render_submit(login)
+        response = follow_trigger_action(login, conn)
+        assert Map.has_key?(response.resp_cookies, "_arcanum_web_user_remember_me") == remember
+      end
+    end
+
     test "redirects if user logs in with valid credentials", %{conn: conn} do
       user = user_fixture() |> set_password()
 
@@ -89,21 +109,18 @@ defmodule ArcanumWeb.UserLive.LoginTest do
     end
   end
 
-  describe "re-authentication (sudo mode)" do
+  describe "already authenticated users" do
     setup %{conn: conn} do
       user = user_fixture()
       %{user: user, conn: log_in_user(conn, user)}
     end
 
     test "shows login page with email filled in", %{conn: conn, user: user} do
-      {:ok, _lv, html} = live(conn, ~p"/users/log-in")
-
-      assert html =~ "You need to reauthenticate"
-      refute html =~ "Register"
-      assert html =~ "Log in with email"
-
-      assert html =~
-               ~s(<input type="email" name="user[email]" id="login_form_magic_email" value="#{user.email}")
+      {:ok, view, _html} = live(conn, ~p"/users/log-in")
+      assert has_element?(view, "#login-page", "You need to reauthenticate")
+      refute has_element?(view, "a[href='/users/register']")
+      assert has_element?(view, "#login-with-email")
+      assert has_element?(view, "#login_form_magic_email[value='#{user.email}']")
     end
   end
 end

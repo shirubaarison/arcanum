@@ -55,6 +55,11 @@ config :arcanum, ArcanumWeb.Endpoint,
 # Enable dev routes for dashboard and mailbox
 config :arcanum, dev_routes: true
 
+# Keep development delivery and the mailbox preview on the same local store.
+config :arcanum, Arcanum.Mailer,
+  adapter: Swoosh.Adapters.Local,
+  storage_driver: Swoosh.Adapters.Local.Storage.Memory
+
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"
 

@@ -43,13 +43,18 @@ defmodule ArcanumWeb.Layouts do
       <div class="mx-auto max-w-5xl bg-[#f6f6ef]">
         <header class="flex flex-wrap items-center gap-x-4 gap-y-2 bg-blue-600 px-3 py-2 text-white">
           <.link navigate={~p"/communities"} class="font-bold">arcanum</.link>
-          <nav aria-label="Communities" class="flex gap-3">
+          <nav :if={@current_scope} aria-label="Communities" class="flex gap-3">
             <.link navigate={~p"/communities"} class="hover:underline">communities</.link>
             <.link navigate={~p"/communities/new"} class="hover:underline">create</.link>
           </nav>
           <div class="ml-auto flex gap-3">
-            <.link navigate={~p"/users/settings"} class="hover:underline">{@current_scope.user.username}</.link>
-            <.link href={~p"/users/log-out"} method="delete" class="hover:underline">log out</.link>
+            <%= if @current_scope do %>
+              <.link navigate={~p"/users/settings"} class="hover:underline">{@current_scope.user.username}</.link>
+              <.link href={~p"/users/log-out"} method="delete" class="hover:underline">log out</.link>
+            <% else %>
+              <.link navigate={~p"/users/log-in"} class="hover:underline">log in</.link>
+              <.link navigate={~p"/users/register"} class="hover:underline">register</.link>
+            <% end %>
           </div>
         </header>
         <main class="px-4 py-6 sm:px-6">{render_slot(@inner_block)}</main>

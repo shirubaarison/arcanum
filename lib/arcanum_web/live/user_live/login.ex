@@ -6,75 +6,65 @@ defmodule ArcanumWeb.UserLive.Login do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope}>
-      <div class="mx-auto max-w-sm space-y-4">
-        <div class="text-center">
-          <.header>
-            <p>Log in</p>
-            <:subtitle>
-              <%= if @current_scope do %>
-                You need to reauthenticate to perform sensitive actions on your account.
-              <% else %>
-                Don't have an account? <.link
-                  navigate={~p"/users/register"}
-                  class="font-semibold text-brand hover:underline"
-                  phx-no-format
-                >Sign up</.link> for an account now.
-              <% end %>
-            </:subtitle>
-          </.header>
-        </div>
-
-        <div :if={local_mail_adapter?()} class="alert alert-info">
-          <.icon name="hero-information-circle" class="size-6 shrink-0" />
-          <div>
-            <p>You are running the local mail adapter.</p>
-            <p>
-              To see sent emails, visit <.link href="/dev/mailbox" class="underline">the mailbox page</.link>.
-            </p>
-          </div>
-        </div>
+    <Layouts.app flash={@flash} current_scope={@current_scope} community>
+      <div id="login-page" class="max-w-xl space-y-5">
+        <h1 class="text-xl font-bold">Log in</h1>
+        <p class="text-stone-600">
+          <%= if @current_scope do %>
+            You need to reauthenticate to perform sensitive actions on your account.
+          <% else %>
+            Don't have an account? <.link
+              navigate={~p"/users/register"}
+              class="text-blue-600 hover:underline"
+              phx-no-format
+            >Sign up</.link> for an account now.
+          <% end %>
+        </p>
 
         <.form
-          :let={f}
           for={@form}
           id="login_form_magic"
           action={~p"/users/log-in"}
           phx-submit="submit_magic"
+          class="space-y-4"
         >
           <.input
+            id="login_form_magic_email"
             readonly={!!@current_scope}
-            field={f[:email]}
+            field={@form[:email]}
             type="email"
             label="Email"
             autocomplete="username"
             spellcheck="false"
             required
             phx-mounted={JS.focus()}
+            class="community-input"
           />
-          <.button class="btn btn-primary w-full">
-            Log in with email <span aria-hidden="true">→</span>
-          </.button>
+          <button id="login-with-email" class="community-button" phx-disable-with="Sending...">Log in with email</button>
         </.form>
 
-        <div class="divider">or</div>
+        <div class="flex items-center gap-3 py-2 text-xs text-stone-500">
+          <span class="h-px flex-1 bg-stone-200" />or<span class="h-px flex-1 bg-stone-200" />
+        </div>
 
         <.form
-          :let={f}
           for={@form}
           id="login_form_password"
           action={~p"/users/log-in"}
           phx-submit="submit_password"
           phx-trigger-action={@trigger_submit}
+          class="space-y-4"
         >
           <.input
+            id="login_form_password_email"
             readonly={!!@current_scope}
-            field={f[:email]}
+            field={@form[:email]}
             type="email"
             label="Email"
             autocomplete="username"
             spellcheck="false"
             required
+            class="community-input"
           />
           <.input
             field={@form[:password]}
@@ -82,13 +72,16 @@ defmodule ArcanumWeb.UserLive.Login do
             label="Password"
             autocomplete="current-password"
             spellcheck="false"
+            class="community-input"
           />
-          <.button class="btn btn-primary w-full" name={@form[:remember_me].name} value="true">
-            Log in and stay logged in <span aria-hidden="true">→</span>
-          </.button>
-          <.button class="btn btn-primary btn-soft w-full mt-2">
-            Log in only this time
-          </.button>
+          <.input
+            field={@form[:remember_me]}
+            id="login-remember"
+            type="checkbox"
+            label="Stay logged in"
+            class="size-4 cursor-pointer accent-blue-600"
+          />
+          <button id="login-submit" class="community-button" phx-disable-with="Logging in...">Log in</button>
         </.form>
       </div>
     </Layouts.app>
@@ -112,23 +105,22 @@ defmodule ArcanumWeb.UserLive.Login do
   end
 
   def handle_event("submit_magic", %{"user" => %{"email" => email}}, socket) do
-    if user = Accounts.get_user_by_email(email) do
-      Accounts.deliver_login_instructions(
-        user,
-        &url(~p"/users/log-in/#{&1}")
-      )
-    end
+    result =
+      if user = Accounts.get_user_by_email(email) do
+        Accounts.deliver_login_instructions(user, &url(~p"/users/log-in/#{&1}"))
+      else
+        :ok
+      end
 
     info =
       "If your email is in our system, you will receive instructions for logging in shortly."
 
-    {:noreply,
-     socket
-     |> put_flash(:info, info)
-     |> push_navigate(to: ~p"/users/log-in")}
-  end
+    case result do
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Email delivery failed. Please try again.")}
 
-  defp local_mail_adapter? do
-    Application.get_env(:arcanum, Arcanum.Mailer)[:adapter] == Swoosh.Adapters.Local
+      _ ->
+        {:noreply, socket |> put_flash(:info, info) |> push_navigate(to: ~p"/users/log-in")}
+    end
   end
 end
