@@ -5,7 +5,14 @@ defmodule ArcanumWeb.ErrorHTMLTest do
   import Phoenix.Template, only: [render_to_string: 4]
 
   test "renders 404.html" do
-    assert render_to_string(ArcanumWeb.ErrorHTML, "404", "html", []) == "Not Found"
+    document =
+      ArcanumWeb.ErrorHTML
+      |> render_to_string("404", "html", [])
+      |> LazyHTML.from_document()
+
+    assert LazyHTML.query(document, "#not-found") |> Enum.count() == 1
+    assert LazyHTML.query(document, "#not-found-home[href='/communities']") |> Enum.count() == 1
+    assert LazyHTML.query(document, "link[href='/assets/css/app.css']") |> Enum.count() == 1
   end
 
   test "renders 500.html" do

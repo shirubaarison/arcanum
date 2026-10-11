@@ -28,7 +28,7 @@ defmodule Arcanum.CommunitiesTest do
     assert Communities.list_communities(scope) == [community]
     assert Communities.list_communities(outsider) == []
     assert_raise Ecto.NoResultsError, fn -> Communities.get_community!(outsider, community.id) end
-    assert_raise Ecto.NoResultsError, fn -> Communities.list_memberships(outsider, community) end
+    assert {:error, :not_found} = Communities.list_memberships(outsider, community)
 
     assert {:error, :unauthorized} =
              Communities.update_community(outsider, community, %{name: "X"})

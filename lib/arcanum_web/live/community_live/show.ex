@@ -2,6 +2,7 @@ defmodule ArcanumWeb.CommunityLive.Show do
   use ArcanumWeb, :live_view
 
   alias Arcanum.Communities
+  alias ArcanumWeb.FailureLog
 
   @impl true
   def mount(_params, _session, socket), do: {:ok, assign(socket, :subscribed_community_id, nil)}
@@ -9,23 +10,37 @@ defmodule ArcanumWeb.CommunityLive.Show do
   @impl true
   def handle_params(%{"id" => id}, _uri, socket) do
     scope = socket.assigns.current_scope
-    community = Communities.get_community!(scope, id)
 
-    {:noreply,
-     socket
-     |> subscribe(community)
-     |> assign(
-       community: community,
-       page_title: community.name,
-       form: to_form(Communities.change_post(scope, community))
-     )
-     |> stream(:posts, Communities.list_posts(scope, community), reset: true)}
-  rescue
-    _ in [Ecto.NoResultsError, Ecto.Query.CastError] ->
+    with {:ok, community} <- Communities.get_community(scope, id),
+         %Ecto.Changeset{} = changeset <- Communities.change_post(scope, community),
+         posts when is_list(posts) <- Communities.list_posts(scope, community) do
       {:noreply,
        socket
-       |> put_flash(:error, "Community not found or you don't have access.")
-       |> push_navigate(to: ~p"/communities")}
+       |> subscribe(community)
+       |> assign(
+         community: community,
+         page_title: community.name,
+         form: to_form(changeset)
+       )
+       |> stream(:posts, posts, reset: true)}
+    else
+      {:error, reason} -> {:noreply, unavailable(socket, reason)}
+    end
+  end
+
+  defp unavailable(socket, reason) do
+    FailureLog.log("community lookup", reason)
+
+    if socket.assigns.subscribed_community_id do
+      Communities.unsubscribe_community(
+        socket.assigns.current_scope,
+        %Arcanum.Communities.Community{id: socket.assigns.subscribed_community_id}
+      )
+    end
+
+    socket
+    |> put_flash(:error, "Community not found or you don't have access.")
+    |> push_navigate(to: ~p"/communities")
   end
 
   defp subscribe(socket, community) do
@@ -37,8 +52,10 @@ defmodule ArcanumWeb.CommunityLive.Show do
         )
       end
 
-      Communities.subscribe_community(socket.assigns.current_scope, community)
-      assign(socket, :subscribed_community_id, community.id)
+      case Communities.subscribe_community(socket.assigns.current_scope, community) do
+        :ok -> assign(socket, :subscribed_community_id, community.id)
+        {:error, reason} -> unavailable(socket, reason)
+      end
     else
       socket
     end
@@ -47,20 +64,16 @@ defmodule ArcanumWeb.CommunityLive.Show do
   @impl true
   def handle_info({:community_changed, id}, %{assigns: %{community: %{id: id}}} = socket) do
     scope = socket.assigns.current_scope
-    community = Communities.get_community!(scope, id)
 
-    {:noreply,
-     socket
-     |> assign(community: community, page_title: community.name)
-     |> stream(:posts, Communities.list_posts(scope, community), reset: true)}
-  rescue
-    Ecto.NoResultsError ->
-      Communities.unsubscribe_community(socket.assigns.current_scope, socket.assigns.community)
-
+    with {:ok, community} <- Communities.get_community(scope, id),
+         posts when is_list(posts) <- Communities.list_posts(scope, community) do
       {:noreply,
        socket
-       |> put_flash(:error, "Community not found or you don't have access.")
-       |> push_navigate(to: ~p"/communities")}
+       |> assign(community: community, page_title: community.name)
+       |> stream(:posts, posts, reset: true)}
+    else
+      {:error, reason} -> {:noreply, unavailable(socket, reason)}
+    end
   end
 
   def handle_info({:community_changed, _id}, socket), do: {:noreply, socket}
@@ -70,7 +83,13 @@ defmodule ArcanumWeb.CommunityLive.Show do
     changeset =
       Communities.change_post(socket.assigns.current_scope, socket.assigns.community, attrs)
 
-    {:noreply, assign(socket, :form, to_form(Map.put(changeset, :action, :validate)))}
+    case changeset do
+      %Ecto.Changeset{} ->
+        {:noreply, assign(socket, :form, to_form(Map.put(changeset, :action, :validate)))}
+
+      {:error, reason} ->
+        {:noreply, unavailable(socket, reason)}
+    end
   end
 
   def handle_event("save", %{"post" => attrs}, socket) do
@@ -80,9 +99,11 @@ defmodule ArcanumWeb.CommunityLive.Show do
          push_navigate(socket, to: ~p"/communities/#{socket.assigns.community}/posts/#{post}")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
+        FailureLog.log("create post", changeset)
         {:noreply, assign(socket, :form, to_form(changeset))}
 
-      {:error, _} ->
+      {:error, reason} ->
+        FailureLog.log("create post", reason)
         {:noreply, put_flash(socket, :error, "You no longer have access to this community.")}
     end
   end
@@ -90,13 +111,14 @@ defmodule ArcanumWeb.CommunityLive.Show do
   def handle_event("vote", %{"id" => id, "vote" => value}, socket) do
     scope = socket.assigns.current_scope
     community = socket.assigns.community
-    post = Communities.get_post!(scope, community, id)
 
-    case Communities.vote_post(scope, post, vote_value(value)) do
-      {:ok, _} ->
-        {:noreply, stream_insert(socket, :posts, Communities.get_post!(scope, community, id))}
-
-      {:error, _} ->
+    with {:ok, post} <- Communities.get_post(scope, community, id),
+         {:ok, _} <- Communities.vote_post(scope, post, vote_value(value)),
+         {:ok, post} <- Communities.get_post(scope, community, id) do
+      {:noreply, stream_insert(socket, :posts, post)}
+    else
+      {:error, reason} ->
+        FailureLog.log("vote post", reason)
         {:noreply, put_flash(socket, :error, "Could not save your vote.")}
     end
   end

@@ -2,6 +2,7 @@ defmodule ArcanumWeb.UserSessionController do
   use ArcanumWeb, :controller
 
   alias Arcanum.Accounts
+  alias ArcanumWeb.FailureLog
   alias ArcanumWeb.UserAuth
 
   def create(conn, %{"_action" => "confirmed"} = params) do
@@ -34,7 +35,9 @@ defmodule ArcanumWeb.UserSessionController do
         |> put_flash(:info, info)
         |> UserAuth.log_in_user(user, user_params)
 
-      _ ->
+      {:error, reason} ->
+        FailureLog.log("magic link login", reason)
+
         conn
         |> put_flash(:error, "The link is invalid or it has expired.")
         |> redirect(to: ~p"/users/log-in")
@@ -50,6 +53,8 @@ defmodule ArcanumWeb.UserSessionController do
       |> put_flash(:info, info)
       |> UserAuth.log_in_user(user, user_params)
     else
+      FailureLog.log("password login", :invalid_credentials)
+
       # In order to prevent user enumeration attacks, don't disclose whether the email is registered.
       conn
       |> put_flash(:error, "Invalid email or password")

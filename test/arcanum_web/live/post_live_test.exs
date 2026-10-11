@@ -46,6 +46,27 @@ defmodule ArcanumWeb.PostLiveTest do
            |> LazyHTML.text() == ""
   end
 
+  test "a stale feed vote reports failure instead of crashing", context do
+    %{conn: conn, scope: scope, community: community} = context
+    {:ok, post} = Communities.create_post(scope, community, %{title: "Gone", body: "Text"})
+    {:ok, view, _} = live(conn, ~p"/communities/#{community}")
+    Arcanum.Repo.delete!(post)
+
+    view |> element("#upvote-post-#{post.id}") |> render_click()
+    assert has_element?(view, "#flash-error", "Could not save your vote.")
+    assert has_element?(view, "#community-name")
+  end
+
+  test "refresh redirects when the displayed post no longer exists", context do
+    %{conn: conn, scope: scope, community: community} = context
+    {:ok, post} = Communities.create_post(scope, community, %{title: "Gone", body: "Text"})
+    {:ok, view, _} = live(conn, ~p"/communities/#{community}/posts/#{post}")
+    Arcanum.Repo.delete!(post)
+    send(view.pid, {:community_changed, community.id})
+
+    assert_redirect(view, ~p"/communities")
+  end
+
   test "votes in the feed can change and clear", context do
     %{conn: conn, scope: scope, community: community} = context
     {:ok, post} = Communities.create_post(scope, community, %{title: "Vote", body: "Text"})

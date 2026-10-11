@@ -54,13 +54,13 @@ defmodule Arcanum.Communities.PostsTest do
   test "outsiders cannot read, post, comment or vote", context do
     %{outsider: outsider, community: community, post: post, scope: scope} = context
     {:ok, comment} = Communities.create_comment(scope, post, %{body: "Comment"})
-    assert_raise Ecto.NoResultsError, fn -> Communities.list_posts(outsider, community) end
+    assert {:error, :not_found} = Communities.list_posts(outsider, community)
 
     assert_raise Ecto.NoResultsError, fn ->
       Communities.get_post!(outsider, community, post.id)
     end
 
-    assert_raise Ecto.NoResultsError, fn -> Communities.list_comments(outsider, post) end
+    assert {:error, :not_found} = Communities.list_comments(outsider, post)
 
     assert {:error, :unauthorized} =
              Communities.create_post(outsider, community, %{title: "No", body: "No"})
@@ -165,7 +165,7 @@ defmodule Arcanum.Communities.PostsTest do
     %{scope: scope, community: community, post: post} = context
     {:ok, comment} = Communities.create_comment(scope, post, %{body: "Comment"})
     {:ok, _} = Communities.delete_community(scope, community)
-    assert_raise Ecto.NoResultsError, fn -> Communities.list_posts(scope, community) end
+    assert {:error, :not_found} = Communities.list_posts(scope, community)
 
     assert {:error, :unauthorized} =
              Communities.create_post(scope, community, %{title: "No", body: "No"})

@@ -278,9 +278,9 @@ defmodule Arcanum.Accounts do
 
   defp activate_verified_user(query, id, attrs) do
     Repo.transact(fn ->
-      user = Repo.one!(from u in User, where: u.id == ^id, lock: "FOR UPDATE")
+      user = Repo.one(from u in User, where: u.id == ^id, lock: "FOR UPDATE")
 
-      with nil <- user.confirmed_at,
+      with %User{confirmed_at: nil} = user <- user,
            {%User{id: ^id}, _} <- Repo.one(query) do
         user
         |> User.activation_changeset(attrs)

@@ -106,7 +106,8 @@ defmodule ArcanumWeb.UserLive.Settings do
         {:ok, _user} ->
           put_flash(socket, :info, "Email changed successfully.")
 
-        {:error, _} ->
+        {:error, reason} ->
+          ArcanumWeb.FailureLog.log("email change", reason)
           put_flash(socket, :error, "Email change link is invalid or it has expired.")
       end
 

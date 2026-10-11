@@ -116,7 +116,8 @@ defmodule ArcanumWeb.UserLive.Login do
       "If your email is in our system, you will receive instructions for logging in shortly."
 
     case result do
-      {:error, _reason} ->
+      {:error, reason} ->
+        ArcanumWeb.FailureLog.log("login email delivery", reason)
         {:noreply, put_flash(socket, :error, "Email delivery failed. Please try again.")}
 
       _ ->

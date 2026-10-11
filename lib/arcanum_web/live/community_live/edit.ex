@@ -3,6 +3,7 @@ defmodule ArcanumWeb.CommunityLive.Edit do
 
   alias Arcanum.Communities
   alias Arcanum.Communities.{Community, CommunityMembership}
+  alias ArcanumWeb.FailureLog
 
   @impl true
   def mount(_params, _session, socket) do
@@ -15,30 +16,36 @@ defmodule ArcanumWeb.CommunityLive.Edit do
   @impl true
   def handle_params(%{"id" => id}, _uri, socket) do
     {:noreply, load(socket, id)}
-  rescue
-    _ in [Ecto.NoResultsError, Ecto.Query.CastError] ->
-      {:noreply,
-       socket
-       |> put_flash(:error, "Community not found or you don't have access.")
-       |> push_navigate(to: ~p"/communities")}
   end
 
   defp load(socket, id) do
     scope = socket.assigns.current_scope
-    community = Communities.get_community!(scope, id)
-    memberships = Communities.list_memberships(scope, community)
-    caller = Enum.find(memberships, &(&1.user_id == scope.user.id))
+
+    with {:ok, community} <- Communities.get_community(scope, id),
+         memberships when is_list(memberships) <- Communities.list_memberships(scope, community),
+         %CommunityMembership{} = caller <- Enum.find(memberships, &(&1.user_id == scope.user.id)) do
+      socket
+      |> assign(
+        community: community,
+        page_title: community.name,
+        role: caller.role,
+        form: to_form(Community.changeset(community, %{})),
+        member_form: to_form(member_changeset(%{query: socket.assigns.member_query}), as: :member)
+      )
+      |> stream(:memberships, memberships, reset: true)
+      |> refresh_available_users()
+    else
+      {:error, reason} -> unavailable(socket, reason)
+      nil -> unavailable(socket, :not_found)
+    end
+  end
+
+  defp unavailable(socket, reason) do
+    FailureLog.log("community settings lookup", reason)
 
     socket
-    |> assign(
-      community: community,
-      page_title: community.name,
-      role: caller.role,
-      form: to_form(Community.changeset(community, %{})),
-      member_form: to_form(member_changeset(%{query: socket.assigns.member_query}), as: :member)
-    )
-    |> stream(:memberships, memberships, reset: true)
-    |> refresh_available_users()
+    |> put_flash(:error, "Community not found or you don't have access.")
+    |> push_navigate(to: ~p"/communities")
   end
 
   @impl true
@@ -57,10 +64,11 @@ defmodule ArcanumWeb.CommunityLive.Edit do
         {:noreply, socket |> load(community.id) |> put_flash(:info, "Community updated.")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
+        FailureLog.log("update community", changeset)
         {:noreply, assign(socket, :form, to_form(changeset))}
 
-      {:error, _} ->
-        denied(socket)
+      {:error, reason} ->
+        denied(socket, reason)
     end
   end
 
@@ -70,8 +78,8 @@ defmodule ArcanumWeb.CommunityLive.Edit do
         {:noreply,
          socket |> put_flash(:info, "Community deleted.") |> push_navigate(to: ~p"/communities")}
 
-      {:error, _} ->
-        denied(socket)
+      {:error, reason} ->
+        denied(socket, reason)
     end
   end
 
@@ -105,9 +113,11 @@ defmodule ArcanumWeb.CommunityLive.Edit do
          socket |> load(socket.assigns.community.id) |> put_flash(:info, "Member added.")}
 
       {:error, :unauthorized} ->
-        denied(socket)
+        denied(socket, :unauthorized)
 
-      {:error, _} ->
+      {:error, reason} ->
+        FailureLog.log("add member", reason)
+
         {:noreply,
          socket
          |> refresh_available_users()
@@ -120,10 +130,10 @@ defmodule ArcanumWeb.CommunityLive.Edit do
     scope = socket.assigns.current_scope
 
     membership =
-      Enum.find(
-        Communities.list_memberships(scope, socket.assigns.community),
-        &(to_string(&1.id) == id)
-      )
+      case Communities.list_memberships(scope, socket.assigns.community) do
+        memberships when is_list(memberships) -> Enum.find(memberships, &(to_string(&1.id) == id))
+        {:error, _reason} -> nil
+      end
 
     result =
       case {event, membership} do
@@ -142,13 +152,15 @@ defmodule ArcanumWeb.CommunityLive.Edit do
         {:noreply,
          socket |> load(socket.assigns.community.id) |> put_flash(:info, "Membership updated.")}
 
-      {:error, _} ->
-        denied(socket)
+      {:error, reason} ->
+        denied(socket, reason)
     end
   end
 
-  defp denied(socket),
-    do: {:noreply, put_flash(socket, :error, "You don't have permission to do that.")}
+  defp denied(socket, reason) do
+    FailureLog.log("community management", reason)
+    {:noreply, put_flash(socket, :error, "You don't have permission to do that.")}
+  end
 
   defp member_changeset(attrs) do
     {%{}, %{query: :string}}
@@ -161,8 +173,12 @@ defmodule ArcanumWeb.CommunityLive.Edit do
            socket.assigns.community,
            socket.assigns.member_query
          ) do
-      {:ok, users} -> stream(socket, :available_users, users, reset: true)
-      {:error, :unauthorized} -> stream(socket, :available_users, [], reset: true)
+      {:ok, users} ->
+        stream(socket, :available_users, users, reset: true)
+
+      {:error, reason} ->
+        FailureLog.log("search members", reason)
+        stream(socket, :available_users, [], reset: true)
     end
   end
 

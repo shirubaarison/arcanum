@@ -40,9 +40,7 @@ defmodule Arcanum.Communities.PubSubTest do
   } do
     outsider = user_scope_fixture()
 
-    assert_raise Ecto.NoResultsError, fn ->
-      Communities.subscribe_community(outsider, community)
-    end
+    assert {:error, :not_found} = Communities.subscribe_community(outsider, community)
 
     :ok = Communities.unsubscribe_community(scope, community)
     {:ok, _} = Communities.create_post(scope, community, %{title: "Hello", body: "Text"})

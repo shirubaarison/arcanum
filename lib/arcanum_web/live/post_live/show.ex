@@ -2,6 +2,7 @@ defmodule ArcanumWeb.PostLive.Show do
   use ArcanumWeb, :live_view
 
   alias Arcanum.Communities
+  alias ArcanumWeb.FailureLog
 
   @impl true
   def mount(_params, _session, socket),
@@ -10,25 +11,38 @@ defmodule ArcanumWeb.PostLive.Show do
   @impl true
   def handle_params(%{"community_id" => community_id, "id" => id}, _uri, socket) do
     scope = socket.assigns.current_scope
-    community = Communities.get_community!(scope, community_id)
-    post = Communities.get_post!(scope, community, id)
 
-    {:noreply,
-     socket
-     |> subscribe(community)
-     |> assign(
-       community: community,
-       post: post,
-       page_title: post.title,
-       form: to_form(Communities.change_comment(scope, post))
-     )
-     |> refresh()}
-  rescue
-    _ in [Ecto.NoResultsError, Ecto.Query.CastError] ->
+    with {:ok, community} <- Communities.get_community(scope, community_id),
+         {:ok, post} <- Communities.get_post(scope, community, id),
+         %Ecto.Changeset{} = changeset <- Communities.change_comment(scope, post) do
       {:noreply,
        socket
-       |> put_flash(:error, "Post not found or you don't have access.")
-       |> push_navigate(to: ~p"/communities")}
+       |> subscribe(community)
+       |> assign(
+         community: community,
+         post: post,
+         page_title: post.title,
+         form: to_form(changeset)
+       )
+       |> refresh()}
+    else
+      {:error, reason} -> {:noreply, unavailable(socket, reason)}
+    end
+  end
+
+  defp unavailable(socket, reason) do
+    FailureLog.log("post lookup", reason)
+
+    if socket.assigns.subscribed_community_id do
+      Communities.unsubscribe_community(
+        socket.assigns.current_scope,
+        %Arcanum.Communities.Community{id: socket.assigns.subscribed_community_id}
+      )
+    end
+
+    socket
+    |> put_flash(:error, "Post not found or you don't have access.")
+    |> push_navigate(to: ~p"/communities")
   end
 
   defp subscribe(socket, community) do
@@ -40,8 +54,10 @@ defmodule ArcanumWeb.PostLive.Show do
         )
       end
 
-      Communities.subscribe_community(socket.assigns.current_scope, community)
-      assign(socket, :subscribed_community_id, community.id)
+      case Communities.subscribe_community(socket.assigns.current_scope, community) do
+        :ok -> assign(socket, :subscribed_community_id, community.id)
+        {:error, reason} -> unavailable(socket, reason)
+      end
     else
       socket
     end
@@ -49,27 +65,26 @@ defmodule ArcanumWeb.PostLive.Show do
 
   @impl true
   def handle_info({:community_changed, id}, %{assigns: %{community: %{id: id}}} = socket) do
-    community = Communities.get_community!(socket.assigns.current_scope, id)
-    {:noreply, socket |> assign(:community, community) |> refresh()}
-  rescue
-    Ecto.NoResultsError ->
-      Communities.unsubscribe_community(socket.assigns.current_scope, socket.assigns.community)
-
-      {:noreply,
-       socket
-       |> put_flash(:error, "Post not found or you don't have access.")
-       |> push_navigate(to: ~p"/communities")}
+    case Communities.get_community(socket.assigns.current_scope, id) do
+      {:ok, community} -> {:noreply, socket |> assign(:community, community) |> refresh()}
+      {:error, reason} -> {:noreply, unavailable(socket, reason)}
+    end
   end
 
   def handle_info({:community_changed, _id}, socket), do: {:noreply, socket}
 
   defp refresh(socket) do
     scope = socket.assigns.current_scope
-    post = Communities.get_post!(scope, socket.assigns.community, socket.assigns.post.id)
 
-    socket
-    |> assign(:post, post)
-    |> stream(:comments, Communities.list_comments(scope, post), reset: true)
+    with {:ok, post} <-
+           Communities.get_post(scope, socket.assigns.community, socket.assigns.post.id),
+         comments when is_list(comments) <- Communities.list_comments(scope, post) do
+      socket
+      |> assign(:post, post)
+      |> stream(:comments, comments, reset: true)
+    else
+      {:error, reason} -> unavailable(socket, reason)
+    end
   end
 
   @impl true
@@ -77,7 +92,13 @@ defmodule ArcanumWeb.PostLive.Show do
     changeset =
       Communities.change_comment(socket.assigns.current_scope, socket.assigns.post, attrs)
 
-    {:noreply, assign(socket, :form, to_form(Map.put(changeset, :action, :validate)))}
+    case changeset do
+      %Ecto.Changeset{} ->
+        {:noreply, assign(socket, :form, to_form(Map.put(changeset, :action, :validate)))}
+
+      {:error, reason} ->
+        {:noreply, unavailable(socket, reason)}
+    end
   end
 
   def handle_event("comment", %{"comment" => attrs}, socket) do
@@ -88,36 +109,32 @@ defmodule ArcanumWeb.PostLive.Show do
            socket.assigns.reply_to
          ) do
       {:ok, _} ->
-        {:noreply,
-         socket
-         |> assign(
-           reply_to: nil,
-           form:
-             to_form(
-               Communities.change_comment(socket.assigns.current_scope, socket.assigns.post)
-             )
-         )
-         |> refresh()}
+        case Communities.change_comment(socket.assigns.current_scope, socket.assigns.post) do
+          %Ecto.Changeset{} = changeset ->
+            {:noreply, socket |> assign(reply_to: nil, form: to_form(changeset)) |> refresh()}
+
+          {:error, reason} ->
+            {:noreply, unavailable(socket, reason)}
+        end
 
       {:error, %Ecto.Changeset{} = changeset} ->
+        FailureLog.log("create comment", changeset)
         {:noreply, assign(socket, :form, to_form(changeset))}
 
-      {:error, _} ->
+      {:error, reason} ->
+        FailureLog.log("create comment", reason)
         {:noreply, put_flash(socket, :error, "Could not add your comment.")}
     end
   end
 
   def handle_event("reply", %{"id" => id}, socket) do
-    comment =
-      Enum.find(
-        Communities.list_comments(socket.assigns.current_scope, socket.assigns.post),
-        &(to_string(&1.id) == id)
-      )
+    case find_comment(socket, id) do
+      {:ok, comment} ->
+        {:noreply, assign(socket, :reply_to, comment.id)}
 
-    if comment do
-      {:noreply, assign(socket, :reply_to, comment.id)}
-    else
-      {:noreply, put_flash(socket, :error, "Comment not found.")}
+      {:error, reason} ->
+        FailureLog.log("reply lookup", reason)
+        {:noreply, put_flash(socket, :error, "Comment not found.")}
     end
   end
 
@@ -132,24 +149,33 @@ defmodule ArcanumWeb.PostLive.Show do
   end
 
   def handle_event("vote_comment", %{"id" => id, "vote" => value}, socket) do
-    comment =
-      Enum.find(
-        Communities.list_comments(socket.assigns.current_scope, socket.assigns.post),
-        &(to_string(&1.id) == id)
-      )
-
     result =
-      if comment,
-        do: Communities.vote_comment(socket.assigns.current_scope, comment, vote_value(value)),
-        else: {:error, :not_found}
+      with {:ok, comment} <- find_comment(socket, id) do
+        Communities.vote_comment(socket.assigns.current_scope, comment, vote_value(value))
+      end
 
     vote_result(socket, result)
   end
 
   defp vote_result(socket, {:ok, _}), do: {:noreply, refresh(socket)}
 
-  defp vote_result(socket, {:error, _}),
-    do: {:noreply, put_flash(socket, :error, "Could not save your vote.")}
+  defp vote_result(socket, {:error, reason}) do
+    FailureLog.log("save vote", reason)
+    {:noreply, put_flash(socket, :error, "Could not save your vote.")}
+  end
+
+  defp find_comment(socket, id) do
+    case Communities.list_comments(socket.assigns.current_scope, socket.assigns.post) do
+      comments when is_list(comments) ->
+        case Enum.find(comments, &(to_string(&1.id) == id)) do
+          nil -> {:error, :not_found}
+          comment -> {:ok, comment}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
 
   defp vote_value("1"), do: 1
   defp vote_value("-1"), do: -1

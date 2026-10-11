@@ -90,7 +90,9 @@ defmodule ArcanumWeb.UserLive.Registration do
                 "An email was sent to #{user.email}, please access it to confirm your account."
               )
 
-            {:error, _} ->
+            {:error, reason} ->
+              ArcanumWeb.FailureLog.log("activation email delivery", reason)
+
               put_flash(
                 socket,
                 :error,

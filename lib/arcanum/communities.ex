@@ -7,6 +7,8 @@ defmodule Arcanum.Communities do
   communities. Owner transfer is not supported.
 
   Mutations return `{:error, :unauthorized}` for inaccessible communities.
+  Non-bang lookups and read/form helpers return `{:error, :not_found}` for
+  missing or inaccessible records. Bang lookups are explicitly opt-in.
   """
 
   import Ecto.Query
@@ -17,8 +19,9 @@ defmodule Arcanum.Communities do
 
   @doc "Subscribes the caller to ID-only notifications for an accessible community."
   def subscribe_community(scope, %Community{id: id}) do
-    get_community!(scope, id)
-    Phoenix.PubSub.subscribe(Arcanum.PubSub, community_topic(id))
+    with {:ok, _community} <- get_community(scope, id) do
+      Phoenix.PubSub.subscribe(Arcanum.PubSub, community_topic(id))
+    end
   end
 
   def unsubscribe_community(%Scope{}, %Community{id: id}) do
@@ -37,6 +40,23 @@ defmodule Arcanum.Communities do
     user_id |> accessible_communities() |> Repo.get!(id)
   end
 
+  @doc "Gets an accessible community, returning :not_found without revealing private records."
+  def get_community(%Scope{user: %User{id: user_id}}, id) do
+    with {:ok, id} <- cast_id(id) do
+      user_id |> accessible_communities() |> Repo.get(id) |> fetch_result()
+    end
+  end
+
+  defp cast_id(id) do
+    case Ecto.Type.cast(:id, id) do
+      {:ok, id} when is_integer(id) and id > 0 -> {:ok, id}
+      _ -> {:error, :not_found}
+    end
+  end
+
+  defp fetch_result(nil), do: {:error, :not_found}
+  defp fetch_result(record), do: {:ok, record}
+
   @doc "Creates a community and its owner membership atomically."
   def create_community(%Scope{user: %User{id: user_id}}, attrs) do
     transaction(fn ->
@@ -52,13 +72,14 @@ defmodule Arcanum.Communities do
 
   @doc "Returns an authorized changeset for a community form."
   def change_community(scope, %Community{id: id}, attrs \\ %{}) do
-    community = get_community!(scope, id)
-    membership = caller_membership(scope, id)
+    with {:ok, community} <- get_community(scope, id) do
+      membership = caller_membership(scope, id)
 
-    if membership.role in [:owner, :admin] do
-      Community.changeset(community, attrs)
-    else
-      {:error, :unauthorized}
+      if membership && membership.role in [:owner, :admin] do
+        Community.changeset(community, attrs)
+      else
+        {:error, :unauthorized}
+      end
     end
   end
 
@@ -80,14 +101,14 @@ defmodule Arcanum.Communities do
 
   @doc "Lists memberships with their users preloaded for an accessible community."
   def list_memberships(scope, %Community{id: id}) do
-    get_community!(scope, id)
-
-    Repo.all(
-      from m in CommunityMembership,
-        where: m.community_id == ^id,
-        order_by: [asc: m.id],
-        preload: [:user]
-    )
+    with {:ok, _community} <- get_community(scope, id) do
+      Repo.all(
+        from m in CommunityMembership,
+          where: m.community_id == ^id,
+          order_by: [asc: m.id],
+          preload: [:user]
+      )
+    end
   end
 
   @doc "Adds an existing user. Defaults to member; only owners can add admins."
@@ -195,13 +216,13 @@ defmodule Arcanum.Communities do
 
   @doc "Lists a community's posts, newest first, with authors and vote scores."
   def list_posts(%Scope{user: %User{id: user_id}} = scope, %Community{id: id}) do
-    get_community!(scope, id)
-
-    Post
-    |> scored(PostVote, :post_id, user_id)
-    |> where([p], p.community_id == ^id)
-    |> order_by([p], desc: p.inserted_at, desc: p.id)
-    |> Repo.all()
+    with {:ok, _community} <- get_community(scope, id) do
+      Post
+      |> scored(PostVote, :post_id, user_id)
+      |> where([p], p.community_id == ^id)
+      |> order_by([p], desc: p.inserted_at, desc: p.id)
+      |> Repo.all()
+    end
   end
 
   @doc "Gets a post only within an accessible community."
@@ -214,9 +235,22 @@ defmodule Arcanum.Communities do
     |> Repo.one!()
   end
 
+  @doc "Gets a post within an accessible community, returning :not_found when unavailable."
+  def get_post(%Scope{user: %User{id: user_id}} = scope, %Community{id: community_id}, id) do
+    with {:ok, _community} <- get_community(scope, community_id),
+         {:ok, id} <- cast_id(id) do
+      Post
+      |> scored(PostVote, :post_id, user_id)
+      |> where([p], p.community_id == ^community_id and p.id == ^id)
+      |> Repo.one()
+      |> fetch_result()
+    end
+  end
+
   def change_post(%Scope{} = scope, %Community{id: id}, attrs \\ %{}) do
-    get_community!(scope, id)
-    Post.changeset(%Post{community_id: id, author_id: scope.user.id}, attrs)
+    with {:ok, _community} <- get_community(scope, id) do
+      Post.changeset(%Post{community_id: id, author_id: scope.user.id}, attrs)
+    end
   end
 
   def create_post(scope, %Community{id: id}, attrs) do
@@ -229,56 +263,67 @@ defmodule Arcanum.Communities do
 
   @doc "Lists comments in thread order, with authors, scores and display depth."
   def list_comments(%Scope{user: %User{id: user_id}} = scope, %Post{} = post) do
-    post = get_post!(scope, %Community{id: post.community_id}, post.id)
-
-    Comment
-    |> scored(CommentVote, :comment_id, user_id)
-    |> where([c], c.post_id == ^post.id)
-    |> order_by([c], asc: c.id)
-    |> Repo.all()
-    |> Enum.group_by(& &1.parent_id)
-    |> thread(nil, 0)
+    with {:ok, post} <- get_post(scope, %Community{id: post.community_id}, post.id) do
+      Comment
+      |> scored(CommentVote, :comment_id, user_id)
+      |> where([c], c.post_id == ^post.id)
+      |> order_by([c], asc: c.id)
+      |> Repo.all()
+      |> Enum.group_by(& &1.parent_id)
+      |> thread(nil, 0)
+    end
   end
 
   def change_comment(scope, %Post{} = post, attrs \\ %{}) do
-    post = get_post!(scope, %Community{id: post.community_id}, post.id)
-    Comment.changeset(%Comment{post_id: post.id, author_id: scope.user.id}, attrs)
+    with {:ok, post} <- get_post(scope, %Community{id: post.community_id}, post.id) do
+      Comment.changeset(%Comment{post_id: post.id, author_id: scope.user.id}, attrs)
+    end
   end
 
   @doc "Creates a comment or reply. Parent IDs are checked against the actual post."
   def create_comment(scope, %Post{id: id}, attrs, parent_id \\ nil) do
-    post = Repo.get!(Post, id)
+    with {:ok, post} <- fetch_result(Repo.get(Post, id)) do
+      mutate(scope, post.community_id, fn _community, _caller ->
+        authorize_parent!(id, parent_id)
 
-    mutate(scope, post.community_id, fn _community, _caller ->
-      if parent_id do
+        %Comment{post_id: id, author_id: scope.user.id, parent_id: parent_id}
+        |> Comment.changeset(attrs)
+        |> persist(:insert)
+      end)
+    end
+  end
+
+  defp authorize_parent!(_post_id, nil), do: :ok
+
+  defp authorize_parent!(post_id, parent_id) do
+    case cast_id(parent_id) do
+      {:ok, parent_id} ->
         authorize!(
-          Repo.exists?(from c in Comment, where: c.id == ^parent_id and c.post_id == ^id)
+          Repo.exists?(from c in Comment, where: c.id == ^parent_id and c.post_id == ^post_id)
         )
-      end
 
-      %Comment{post_id: id, author_id: scope.user.id, parent_id: parent_id}
-      |> Comment.changeset(attrs)
-      |> persist(:insert)
-    end)
+      {:error, reason} ->
+        Repo.rollback(reason)
+    end
   end
 
   @doc "Sets a post vote to 1 or -1; 0 clears it. One vote per user is enforced."
   def vote_post(scope, %Post{id: id}, value) do
-    post = Repo.get!(Post, id)
-
-    mutate(scope, post.community_id, fn _community, _caller ->
-      set_vote(PostVote, :post_id, id, scope.user.id, value)
-    end)
+    with {:ok, post} <- fetch_result(Repo.get(Post, id)) do
+      mutate(scope, post.community_id, fn _community, _caller ->
+        set_vote(PostVote, :post_id, id, scope.user.id, value)
+      end)
+    end
   end
 
   @doc "Sets a comment vote to 1 or -1; 0 clears it."
   def vote_comment(scope, %Comment{id: id}, value) do
-    comment = Repo.get!(Comment, id)
-    post = Repo.get!(Post, comment.post_id)
-
-    mutate(scope, post.community_id, fn _community, _caller ->
-      set_vote(CommentVote, :comment_id, id, scope.user.id, value)
-    end)
+    with {:ok, comment} <- fetch_result(Repo.get(Comment, id)),
+         {:ok, post} <- fetch_result(Repo.get(Post, comment.post_id)) do
+      mutate(scope, post.community_id, fn _community, _caller ->
+        set_vote(CommentVote, :comment_id, id, scope.user.id, value)
+      end)
+    end
   end
 
   defp set_vote(schema, key, id, user_id, 0) do
