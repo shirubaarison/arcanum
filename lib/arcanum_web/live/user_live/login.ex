@@ -11,7 +11,7 @@ defmodule ArcanumWeb.UserLive.Login do
         <h1 class="text-xl font-bold">Log in</h1>
         <p class="text-stone-600">
           <%= if @current_scope do %>
-            You need to reauthenticate to perform sensitive actions on your account.
+            You're already logged in. You can log in again or return to your account.
           <% else %>
             Don't have an account? <.link
               navigate={~p"/users/register"}

@@ -117,7 +117,7 @@ defmodule ArcanumWeb.UserLive.LoginTest do
 
     test "shows login page with email filled in", %{conn: conn, user: user} do
       {:ok, view, _html} = live(conn, ~p"/users/log-in")
-      assert has_element?(view, "#login-page", "You need to reauthenticate")
+      assert has_element?(view, "#login-page", "You're already logged in")
       refute has_element?(view, "a[href='/users/register']")
       assert has_element?(view, "#login-with-email")
       assert has_element?(view, "#login_form_magic_email[value='#{user.email}']")

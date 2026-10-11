@@ -24,20 +24,50 @@ defmodule ArcanumWeb.UserLive.SettingsTest do
       assert %{"error" => "You must log in to access this page."} = flash
     end
 
-    test "redirects if user is not in sudo mode", %{conn: conn} do
-      {:ok, conn} =
+    test "allows settings access without a recent login", %{conn: conn} do
+      {:ok, view, _} =
         conn
         |> log_in_user(user_fixture(),
-          token_authenticated_at: DateTime.add(DateTime.utc_now(:second), -11, :minute)
+          token_authenticated_at: DateTime.add(DateTime.utc_now(:second), -2, :hour)
         )
         |> live(~p"/users/settings")
-        |> follow_redirect(conn, ~p"/users/log-in")
 
-      assert conn.resp_body =~ "You must re-authenticate to access this page."
+      assert has_element?(view, "#account-settings")
     end
   end
 
   describe "update email form" do
+    test "older sessions can change username, request email changes and update passwords", %{
+      conn: conn
+    } do
+      user = user_fixture()
+
+      conn =
+        log_in_user(conn, user,
+          token_authenticated_at: DateTime.add(DateTime.utc_now(:second), -2, :hour)
+        )
+
+      {:ok, view, _} = live(conn, ~p"/users/settings")
+
+      username = unique_username()
+      view |> form("#username-form", user: %{username: username}) |> render_submit()
+      assert Accounts.get_user!(user.id).username == username
+      view |> form("#email_form", user: %{email: unique_user_email()}) |> render_submit()
+      assert has_element?(view, "#flash-info", "A link to confirm your email change")
+
+      password = valid_user_password()
+
+      password_form =
+        form(view, "#password_form",
+          user: %{email: user.email, password: password, password_confirmation: password}
+        )
+
+      render_submit(password_form)
+      updated = follow_trigger_action(password_form, conn)
+      assert redirected_to(updated) == ~p"/users/settings"
+      assert Accounts.get_user_by_email_and_password(user.email, password)
+    end
+
     setup %{conn: conn} do
       user = user_fixture()
       %{conn: log_in_user(conn, user), user: user}

@@ -1,8 +1,6 @@
 defmodule ArcanumWeb.UserLive.Settings do
   use ArcanumWeb, :live_view
 
-  on_mount {ArcanumWeb.UserAuth, :require_sudo_mode}
-
   alias Arcanum.Accounts
 
   @impl true
@@ -142,8 +140,6 @@ defmodule ArcanumWeb.UserLive.Settings do
   end
 
   def handle_event("update_username", %{"user" => attrs}, socket) do
-    true = Accounts.sudo_mode?(socket.assigns.current_scope.user)
-
     case Accounts.update_user_username(socket.assigns.current_scope, attrs) do
       {:ok, user} ->
         {:noreply,
@@ -175,7 +171,6 @@ defmodule ArcanumWeb.UserLive.Settings do
   def handle_event("update_email", params, socket) do
     %{"user" => user_params} = params
     user = socket.assigns.current_scope.user
-    true = Accounts.sudo_mode?(user)
 
     case Accounts.change_user_email(user, user_params) do
       %{valid?: true} = changeset ->
@@ -208,7 +203,6 @@ defmodule ArcanumWeb.UserLive.Settings do
   def handle_event("update_password", params, socket) do
     %{"user" => user_params} = params
     user = socket.assigns.current_scope.user
-    true = Accounts.sudo_mode?(user)
 
     case Accounts.change_user_password(user, user_params) do
       %{valid?: true} = changeset ->
