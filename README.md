@@ -13,6 +13,33 @@ PostgreSQL is available at `localhost:5432` with username `postgres`, password
 are for local development only. Database data persists in a Docker volume.
 Stop PostgreSQL with `docker compose down`.
 
+## Development seed data
+
+`mix setup` includes repeatable demo seeds. To seed an existing development
+database, run `mix ecto.migrate` and `mix run priv/repo/seeds.exs`.
+
+Sign in using password mode with any of these confirmed demo accounts:
+
+| Username | Email |
+| --- | --- |
+| `demo_alice` | `demo_alice@example.com` |
+| `demo_bob` | `demo_bob@example.com` |
+| `demo_carol` | `demo_carol@example.com` |
+| `demo_dave` | `demo_dave@example.com` |
+
+New demo accounts use the password `arcanum-demo-password`. These credentials
+are **only for local development**. The seed script refuses non-development
+environments, including production, and sends no activation emails.
+
+Seeds include three private communities, six posts, eight threaded comments,
+and upvotes/downvotes. Alice and Bob share Demo Commons and Demo Elixir;
+Carol shares Demo Commons with them and Demo Book Club with Dave. Dave shares
+no communities with Alice or Bob, making profile privacy easy to try.
+
+Rerunning seeds does not duplicate matching records or reset existing passwords,
+content, roles, or votes. Conflicting account identities or community ownership
+stop the seed transaction without overwriting existing data.
+
 ## Development emails
 
 Open [`localhost:4000/dev/mailbox`](http://localhost:4000/dev/mailbox) to read
