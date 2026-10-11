@@ -6,6 +6,33 @@
 @source "../css";
 @source "../js";
 @source "../../lib/arcanum_web";
+
+.community-input {
+  display: block;
+  width: 100%;
+  margin-top: 0.25rem;
+  padding: 0.5rem;
+  border: 1px solid #a8a29e;
+  border-radius: 2px;
+  background: white;
+  color: #222;
+  font: inherit;
+}
+.community-input:focus {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+.community-button {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid #a8a29e;
+  border-radius: 2px;
+  background: #fff;
+  color: #222;
+  cursor: pointer;
+  transition: background-color 120ms;
+}
+.community-button:hover { background: #dbeafe; }
+.community-button:disabled { opacity: 0.6; cursor: wait; }
 /* Required for Tailwind to automatically pick up changes in colocated CSS files in dev */
 @source "../../_build/dev/phoenix-colocated/arcanum/*/";
 

@@ -32,10 +32,30 @@ defmodule ArcanumWeb.Layouts do
     doc: "the current [scope](https://phoenix.hexdocs.pm/scopes.html)"
 
   slot :inner_block, required: true
+  attr :community, :boolean, default: false
 
   def app(assigns) do
     ~H"""
-    <header class="navbar px-4 sm:px-6 lg:px-8">
+    <div
+      :if={@community}
+      class="min-h-screen bg-white px-2 py-3 font-sans text-sm text-[#222] sm:px-6"
+    >
+      <div class="mx-auto max-w-5xl bg-[#f6f6ef]">
+        <header class="flex flex-wrap items-center gap-x-4 gap-y-2 bg-blue-600 px-3 py-2 text-white">
+          <.link navigate={~p"/communities"} class="font-bold">arcanum</.link>
+          <nav aria-label="Communities" class="flex gap-3">
+            <.link navigate={~p"/communities"} class="hover:underline">communities</.link>
+            <.link navigate={~p"/communities/new"} class="hover:underline">create</.link>
+          </nav>
+          <div class="ml-auto flex gap-3">
+            <.link navigate={~p"/users/settings"} class="hover:underline">account</.link>
+            <.link href={~p"/users/log-out"} method="delete" class="hover:underline">log out</.link>
+          </div>
+        </header>
+        <main class="px-4 py-6 sm:px-6">{render_slot(@inner_block)}</main>
+      </div>
+    </div>
+    <header :if={!@community} class="navbar px-4 sm:px-6 lg:px-8">
       <div class="flex-1">
         <a href="/" class="flex-1 flex w-fit items-center gap-2">
           <img src={~p"/images/logo.svg"} width="36" />
@@ -62,7 +82,7 @@ defmodule ArcanumWeb.Layouts do
       </div>
     </header>
 
-    <main class="px-4 py-20 sm:px-6 lg:px-8">
+    <main :if={!@community} class="px-4 py-20 sm:px-6 lg:px-8">
       <div class="mx-auto max-w-2xl space-y-4">
         {render_slot(@inner_block)}
       </div>
