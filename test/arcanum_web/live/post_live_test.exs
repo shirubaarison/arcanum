@@ -21,7 +21,7 @@ defmodule ArcanumWeb.PostLiveTest do
     assert has_element?(view, "#posts-#{post.id}")
     refute has_element?(view, "#posts-#{hidden.id}")
     refute has_element?(view, "#community-form")
-    assert has_element?(view, "#community-settings[href='/communities/#{community.id}/edit']")
+    assert has_element?(view, "#community-settings[href='/communities/#{community.name}/edit']")
     {:ok, edit, _} = live(conn, ~p"/communities/#{community}/edit")
     assert has_element?(edit, "#community-form")
     refute has_element?(edit, "#posts")

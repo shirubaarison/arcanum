@@ -56,10 +56,10 @@ defmodule ArcanumWeb.Router do
       live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
       live "/communities", CommunityLive.Index, :index
       live "/communities/new", CommunityLive.Index, :new
-      live "/communities/:id/edit", CommunityLive.Edit, :edit
-      live "/communities/:id/posts/new", CommunityLive.Show, :new_post
-      live "/communities/:community_id/posts/:id", PostLive.Show, :show
-      live "/communities/:id", CommunityLive.Show, :show
+      live "/communities/:name/edit", CommunityLive.Edit, :edit
+      live "/communities/:name/posts/new", CommunityLive.Show, :new_post
+      live "/communities/:community_name/posts/:id", PostLive.Show, :show
+      live "/communities/:name", CommunityLive.Show, :show
     end
 
     post "/users/update-password", UserSessionController, :update_password

@@ -56,7 +56,7 @@ defmodule ArcanumWeb.CommunityLiveTest do
     assert Communities.list_communities(scope) == []
 
     view
-    |> form("#community-form", community: %{name: "New", description: "Hello"})
+    |> form("#community-form", community: %{name: "Fresh", description: "Hello"})
     |> render_submit()
 
     [community] = Communities.list_communities(scope)
@@ -115,6 +115,19 @@ defmodule ArcanumWeb.CommunityLiveTest do
 
   test "outsiders cannot load a community", %{conn: conn} do
     {:ok, community} = Communities.create_community(user_scope_fixture(), %{name: "Hidden"})
+
+    assert {:error, {:live_redirect, %{to: "/communities"}}} =
+             live(conn, ~p"/communities/#{community}")
+  end
+
+  test "community URLs use encoded names and follow renames", %{conn: conn, scope: scope} do
+    {:ok, community} = Communities.create_community(scope, %{name: "Elixir Club"})
+    assert ~p"/communities/#{community}" == "/communities/Elixir%20Club"
+    {:ok, view, _} = live(conn, ~p"/communities/#{community}/edit")
+
+    view |> form("#community-form", community: %{name: "New Club"}) |> render_submit()
+    assert_patch(view, "/communities/New%20Club/edit")
+    assert has_element?(view, "#community-name", "New Club")
 
     assert {:error, {:live_redirect, %{to: "/communities"}}} =
              live(conn, ~p"/communities/#{community}")

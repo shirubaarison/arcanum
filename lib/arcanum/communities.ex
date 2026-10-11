@@ -54,6 +54,15 @@ defmodule Arcanum.Communities do
     end
   end
 
+  @doc "Gets an accessible community by its unique name, without exposing private communities."
+  def get_community_by_name(%Scope{user: %User{id: user_id}}, name) when is_binary(name) do
+    user_id
+    |> accessible_communities()
+    |> where([c], fragment("lower(?) = lower(?)", c.name, ^name))
+    |> Repo.one()
+    |> fetch_result()
+  end
+
   defp fetch_result(nil), do: {:error, :not_found}
   defp fetch_result(record), do: {:ok, record}
 

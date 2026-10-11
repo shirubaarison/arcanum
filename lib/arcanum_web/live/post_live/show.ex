@@ -9,10 +9,10 @@ defmodule ArcanumWeb.PostLive.Show do
     do: {:ok, assign(socket, reply_to: nil, subscribed_community_id: nil)}
 
   @impl true
-  def handle_params(%{"community_id" => community_id, "id" => id}, _uri, socket) do
+  def handle_params(%{"community_name" => community_name, "id" => id}, _uri, socket) do
     scope = socket.assigns.current_scope
 
-    with {:ok, community} <- Communities.get_community(scope, community_id),
+    with {:ok, community} <- Communities.get_community_by_name(scope, community_name),
          {:ok, post} <- Communities.get_post(scope, community, id),
          %Ecto.Changeset{} = changeset <- Communities.change_comment(scope, post) do
       {:noreply,

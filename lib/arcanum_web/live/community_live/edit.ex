@@ -14,8 +14,11 @@ defmodule ArcanumWeb.CommunityLive.Edit do
   end
 
   @impl true
-  def handle_params(%{"id" => id}, _uri, socket) do
-    {:noreply, load(socket, id)}
+  def handle_params(%{"name" => name}, _uri, socket) do
+    case Communities.get_community_by_name(socket.assigns.current_scope, name) do
+      {:ok, community} -> {:noreply, load(socket, community.id)}
+      {:error, reason} -> {:noreply, unavailable(socket, reason)}
+    end
   end
 
   defp load(socket, id) do
@@ -61,7 +64,11 @@ defmodule ArcanumWeb.CommunityLive.Edit do
            attrs
          ) do
       {:ok, community} ->
-        {:noreply, socket |> load(community.id) |> put_flash(:info, "Community updated.")}
+        {:noreply,
+         socket
+         |> load(community.id)
+         |> put_flash(:info, "Community updated.")
+         |> push_patch(to: ~p"/communities/#{community}/edit")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         FailureLog.log("update community", changeset)

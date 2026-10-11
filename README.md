@@ -31,6 +31,16 @@ ownership has been verified.
 
 Ready to run in production? Please [check our deployment guides](https://phoenix.hexdocs.pm/deployment.html).
 
+## Community URLs
+
+Community URLs use `/communities/<name>` rather than database IDs. Names are
+unique across the application (case-insensitive), including deleted communities;
+spaces are URL-encoded. Renaming a community changes its URL. `new` and names
+containing slashes are not allowed.
+
+Run `mix ecto.migrate` to add the unique community-name index. Existing duplicate
+names must be resolved before the migration can succeed; it does not rename data.
+
 ## Code quality
 
 Run `mix credo --strict` for linting and `mix dialyzer` for type analysis.
