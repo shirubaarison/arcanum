@@ -42,7 +42,9 @@
       :if={
         assigns[:live_module] not in [
           ArcanumWeb.CommunityLive.Index,
-          ArcanumWeb.CommunityLive.Show
+          ArcanumWeb.CommunityLive.Show,
+          ArcanumWeb.CommunityLive.Edit,
+          ArcanumWeb.PostLive.Show
         ]
       }
       class="menu menu-horizontal w-full relative z-10 flex items-center gap-4 px-4 sm:px-6 lg:px-8 justify-end"

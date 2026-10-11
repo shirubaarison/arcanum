@@ -27,7 +27,7 @@ defmodule ArcanumWeb.CommunityLiveTest do
     {:ok, community} = Communities.create_community(owner, %{name: "Admin access"})
     {:ok, admin} = Communities.add_member(owner, community, scope.user, %{role: :admin})
     {:ok, member} = Communities.add_member(owner, community, user_fixture())
-    {:ok, view, _} = live(conn, ~p"/communities/#{community}")
+    {:ok, view, _} = live(conn, ~p"/communities/#{community}/edit")
     assert has_element?(view, "#community-form")
     assert has_element?(view, "#member-form")
     assert has_element?(view, "#remove-#{member.id}")
@@ -69,7 +69,7 @@ defmodule ArcanumWeb.CommunityLiveTest do
   } do
     {:ok, community} = Communities.create_community(scope, %{name: "Original"})
     user = user_fixture()
-    {:ok, view, _} = live(conn, ~p"/communities/#{community}")
+    {:ok, view, _} = live(conn, ~p"/communities/#{community}/edit")
     view |> form("#community-form", community: %{name: "Updated"}) |> render_submit()
     assert has_element?(view, "#community-name", "Updated")
     view |> form("#member-form", member: %{email: "missing@example.com"}) |> render_submit()
@@ -87,7 +87,7 @@ defmodule ArcanumWeb.CommunityLiveTest do
     owner = user_scope_fixture()
     {:ok, community} = Communities.create_community(owner, %{name: "Private"})
     {:ok, _} = Communities.add_member(owner, community, scope.user)
-    {:ok, view, _} = live(conn, ~p"/communities/#{community}")
+    {:ok, view, _} = live(conn, ~p"/communities/#{community}/edit")
     assert has_element?(view, "#community-name")
     refute has_element?(view, "#community-form")
     refute has_element?(view, "#member-form")
@@ -99,7 +99,7 @@ defmodule ArcanumWeb.CommunityLiveTest do
 
   test "owner can soft-delete", %{conn: conn, scope: scope} do
     {:ok, community} = Communities.create_community(scope, %{name: "Delete"})
-    {:ok, view, _} = live(conn, ~p"/communities/#{community}")
+    {:ok, view, _} = live(conn, ~p"/communities/#{community}/edit")
     view |> element("#delete-community") |> render_click()
     assert_redirect(view, ~p"/communities")
     assert Communities.list_communities(scope) == []

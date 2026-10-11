@@ -13,6 +13,7 @@ defmodule Arcanum.Communities do
 
   alias Arcanum.Accounts.{Scope, User}
   alias Arcanum.Communities.{Community, CommunityMembership}
+  alias Arcanum.Communities.{Post, Comment, PostVote, CommentVote}
   alias Arcanum.Repo
 
   @doc "Lists the caller's active communities."
@@ -128,6 +129,133 @@ defmodule Arcanum.Communities do
         {:ok, membership} -> membership
         {:error, changeset} -> Repo.rollback(changeset)
       end
+    end)
+  end
+
+  @doc "Lists a community's posts, newest first, with authors and vote scores."
+  def list_posts(%Scope{user: %User{id: user_id}} = scope, %Community{id: id}) do
+    get_community!(scope, id)
+
+    Post
+    |> scored(PostVote, :post_id, user_id)
+    |> where([p], p.community_id == ^id)
+    |> order_by([p], desc: p.inserted_at, desc: p.id)
+    |> Repo.all()
+  end
+
+  @doc "Gets a post only within an accessible community."
+  def get_post!(%Scope{user: %User{id: user_id}} = scope, %Community{id: community_id}, id) do
+    get_community!(scope, community_id)
+
+    Post
+    |> scored(PostVote, :post_id, user_id)
+    |> where([p], p.community_id == ^community_id and p.id == ^id)
+    |> Repo.one!()
+  end
+
+  def change_post(%Scope{} = scope, %Community{id: id}, attrs \\ %{}) do
+    get_community!(scope, id)
+    Post.changeset(%Post{community_id: id, author_id: scope.user.id}, attrs)
+  end
+
+  def create_post(scope, %Community{id: id}, attrs) do
+    mutate(scope, id, fn _community, _caller ->
+      %Post{community_id: id, author_id: scope.user.id}
+      |> Post.changeset(attrs)
+      |> persist(:insert)
+    end)
+  end
+
+  @doc "Lists comments in thread order, with authors, scores and display depth."
+  def list_comments(%Scope{user: %User{id: user_id}} = scope, %Post{} = post) do
+    post = get_post!(scope, %Community{id: post.community_id}, post.id)
+
+    Comment
+    |> scored(CommentVote, :comment_id, user_id)
+    |> where([c], c.post_id == ^post.id)
+    |> order_by([c], asc: c.id)
+    |> Repo.all()
+    |> Enum.group_by(& &1.parent_id)
+    |> thread(nil, 0)
+  end
+
+  def change_comment(scope, %Post{} = post, attrs \\ %{}) do
+    post = get_post!(scope, %Community{id: post.community_id}, post.id)
+    Comment.changeset(%Comment{post_id: post.id, author_id: scope.user.id}, attrs)
+  end
+
+  @doc "Creates a comment or reply. Parent IDs are checked against the actual post."
+  def create_comment(scope, %Post{id: id}, attrs, parent_id \\ nil) do
+    post = Repo.get!(Post, id)
+
+    mutate(scope, post.community_id, fn _community, _caller ->
+      if parent_id do
+        authorize!(
+          Repo.exists?(from c in Comment, where: c.id == ^parent_id and c.post_id == ^id)
+        )
+      end
+
+      %Comment{post_id: id, author_id: scope.user.id, parent_id: parent_id}
+      |> Comment.changeset(attrs)
+      |> persist(:insert)
+    end)
+  end
+
+  @doc "Sets a post vote to 1 or -1; 0 clears it. One vote per user is enforced."
+  def vote_post(scope, %Post{id: id}, value) do
+    post = Repo.get!(Post, id)
+
+    mutate(scope, post.community_id, fn _community, _caller ->
+      set_vote(PostVote, :post_id, id, scope.user.id, value)
+    end)
+  end
+
+  @doc "Sets a comment vote to 1 or -1; 0 clears it."
+  def vote_comment(scope, %Comment{id: id}, value) do
+    comment = Repo.get!(Comment, id)
+    post = Repo.get!(Post, comment.post_id)
+
+    mutate(scope, post.community_id, fn _community, _caller ->
+      set_vote(CommentVote, :comment_id, id, scope.user.id, value)
+    end)
+  end
+
+  defp set_vote(schema, key, id, user_id, 0) do
+    Repo.delete_all(from v in schema, where: field(v, ^key) == ^id and v.user_id == ^user_id)
+    :cleared
+  end
+
+  defp set_vote(schema, key, id, user_id, value) do
+    changeset =
+      schema.changeset(struct(schema, [{key, id}, {:user_id, user_id}]), %{value: value})
+
+    case Repo.insert(changeset,
+           on_conflict: {:replace, [:value, :updated_at]},
+           conflict_target: [key, :user_id]
+         ) do
+      {:ok, vote} -> vote
+      {:error, changeset} -> Repo.rollback(changeset)
+    end
+  end
+
+  defp scored(schema, votes, key, user_id) do
+    totals =
+      from v in votes,
+        group_by: field(v, ^key),
+        select: %{target_id: field(v, ^key), score: sum(v.value)}
+
+    from record in schema,
+      left_join: total in subquery(totals),
+      on: total.target_id == record.id,
+      left_join: mine in ^votes,
+      on: field(mine, ^key) == record.id and mine.user_id == ^user_id,
+      select_merge: %{score: coalesce(total.score, 0), my_vote: coalesce(mine.value, 0)},
+      preload: [:author]
+  end
+
+  defp thread(grouped, parent_id, depth) do
+    Enum.flat_map(Map.get(grouped, parent_id, []), fn comment ->
+      [%{comment | depth: depth} | thread(grouped, comment.id, depth + 1)]
     end)
   end
 
