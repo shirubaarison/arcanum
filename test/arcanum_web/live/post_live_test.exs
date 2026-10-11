@@ -36,6 +36,14 @@ defmodule ArcanumWeb.PostLiveTest do
     view |> form("#post-form", post: %{title: "First", body: "Hello"}) |> render_submit()
     [post] = Communities.list_posts(scope, community)
     assert_redirect(view, ~p"/communities/#{community}/posts/#{post}")
+    {:ok, next, _} = live(conn, ~p"/communities/#{community}/posts/new")
+    assert has_element?(next, "#post-form input[name='post[title]']:not([value])")
+
+    assert next
+           |> element("#post-form textarea")
+           |> render()
+           |> LazyHTML.from_fragment()
+           |> LazyHTML.text() == ""
   end
 
   test "votes in the feed can change and clear", context do
@@ -51,6 +59,31 @@ defmodule ArcanumWeb.PostLiveTest do
     assert has_element?(view, "#post-score-#{post.id}", "0")
   end
 
+  test "browser button values cannot overwrite post or comment votes", context do
+    %{conn: conn, scope: scope, community: community} = context
+    {:ok, post} = Communities.create_post(scope, community, %{title: "Vote", body: "Text"})
+    {:ok, comment} = Communities.create_comment(scope, post, %{body: "Comment"})
+
+    {:ok, feed, _} = live(conn, ~p"/communities/#{community}")
+    assert has_element?(feed, "#upvote-post-#{post.id}[phx-value-vote='1']")
+    feed |> element("#upvote-post-#{post.id}") |> render_click(%{"value" => ""})
+    assert has_element?(feed, "#post-score-#{post.id}", "1")
+    feed |> element("#downvote-post-#{post.id}") |> render_click(%{"value" => ""})
+    assert has_element?(feed, "#post-score-#{post.id}", "-1")
+    feed |> element("#downvote-post-#{post.id}") |> render_click(%{"value" => ""})
+    assert has_element?(feed, "#post-score-#{post.id}", "0")
+
+    {:ok, view, _} = live(conn, ~p"/communities/#{community}/posts/#{post}")
+    view |> element("#upvote-post") |> render_click(%{"value" => ""})
+    assert has_element?(view, "#post-score", "1 points")
+    view |> element("#upvote-comment-#{comment.id}") |> render_click(%{"value" => ""})
+    assert has_element?(view, "#comment-score-#{comment.id}", "1 points")
+    view |> element("#downvote-comment-#{comment.id}") |> render_click(%{"value" => ""})
+    assert has_element?(view, "#comment-score-#{comment.id}", "-1 points")
+    view |> element("#downvote-comment-#{comment.id}") |> render_click(%{"value" => ""})
+    assert has_element?(view, "#comment-score-#{comment.id}", "0 points")
+  end
+
   test "comments, replies and post/comment voting", context do
     %{conn: conn, scope: scope, community: community} = context
     {:ok, post} = Communities.create_post(scope, community, %{title: "Discuss", body: "Text"})
@@ -63,7 +96,16 @@ defmodule ArcanumWeb.PostLiveTest do
     assert has_element?(view, "#post-score", "0 points")
     view |> form("#comment-form", comment: %{body: ""}) |> render_submit()
     assert Communities.list_comments(scope, post) == []
+    view |> form("#comment-form", comment: %{body: "First comment"}) |> render_change()
+    assert has_element?(view, "#comment-form textarea", "First comment")
     view |> form("#comment-form", comment: %{body: "First comment"}) |> render_submit()
+
+    assert view
+           |> element("#comment-form textarea")
+           |> render()
+           |> LazyHTML.from_fragment()
+           |> LazyHTML.text() == ""
+
     [comment] = Communities.list_comments(scope, post)
     assert has_element?(view, "#comments-#{comment.id}")
     view |> element("#upvote-comment-#{comment.id}") |> render_click()
@@ -74,7 +116,15 @@ defmodule ArcanumWeb.PostLiveTest do
     assert has_element?(view, "#comment-score-#{comment.id}", "0 points")
     view |> element("#reply-#{comment.id}") |> render_click()
     assert has_element?(view, "#reply-target")
+    view |> form("#comment-form", comment: %{body: "A reply"}) |> render_change()
     view |> form("#comment-form", comment: %{body: "A reply"}) |> render_submit()
+
+    assert view
+           |> element("#comment-form textarea")
+           |> render()
+           |> LazyHTML.from_fragment()
+           |> LazyHTML.text() == ""
+
     [_, reply] = Communities.list_comments(scope, post)
     assert reply.parent_id == comment.id
     assert has_element?(view, "#comments-#{reply.id}")
@@ -94,12 +144,10 @@ defmodule ArcanumWeb.PostLiveTest do
     {:ok, other} = Communities.create_community(outsider, %{name: "Private"})
     {:ok, post} = Communities.create_post(outsider, other, %{title: "Hidden", body: "Text"})
 
-    assert_raise Ecto.NoResultsError, fn ->
-      live(conn, ~p"/communities/#{other}/posts/#{post}")
-    end
+    assert {:error, {:live_redirect, %{to: "/communities"}}} =
+             live(conn, ~p"/communities/#{other}/posts/#{post}")
 
-    assert_raise Ecto.NoResultsError, fn ->
-      live(conn, ~p"/communities/#{community}/posts/#{post}")
-    end
+    assert {:error, {:live_redirect, %{to: "/communities"}}} =
+             live(conn, ~p"/communities/#{community}/posts/#{post}")
   end
 end

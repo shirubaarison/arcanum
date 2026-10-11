@@ -10,6 +10,12 @@ defmodule ArcanumWeb.CommunityLive.Edit do
   @impl true
   def handle_params(%{"id" => id}, _uri, socket) do
     {:noreply, load(socket, id)}
+  rescue
+    _ in [Ecto.NoResultsError, Ecto.Query.CastError] ->
+      {:noreply,
+       socket
+       |> put_flash(:error, "Community not found or you don't have access.")
+       |> push_navigate(to: ~p"/communities")}
   end
 
   defp load(socket, id) do

@@ -107,6 +107,21 @@ defmodule ArcanumWeb.CommunityLiveTest do
 
   test "outsiders cannot load a community", %{conn: conn} do
     {:ok, community} = Communities.create_community(user_scope_fixture(), %{name: "Hidden"})
-    assert_raise Ecto.NoResultsError, fn -> live(conn, ~p"/communities/#{community}") end
+
+    assert {:error, {:live_redirect, %{to: "/communities"}}} =
+             live(conn, ~p"/communities/#{community}")
+  end
+
+  test "missing communities and settings redirect without disclosing private data", %{conn: conn} do
+    for path <- [
+          ~p"/communities/999999999",
+          ~p"/communities/999999999/edit",
+          ~p"/communities/not-an-id"
+        ] do
+      assert {:error, {:live_redirect, %{to: "/communities", flash: %{"error" => error}}}} =
+               live(conn, path)
+
+      assert error == "Community not found or you don't have access."
+    end
   end
 end

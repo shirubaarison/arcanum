@@ -77,9 +77,6 @@ defmodule ArcanumWeb.CommunityLive.Index do
               navigate={~p"/communities/#{community}/edit"}
               class="ml-3 text-xs text-stone-500 hover:underline"
             >settings</.link>
-            <p class="mt-1 whitespace-pre-wrap break-words text-xs text-stone-500">
-              {community.description}
-            </p>
           </article>
         </div>
       <% end %>

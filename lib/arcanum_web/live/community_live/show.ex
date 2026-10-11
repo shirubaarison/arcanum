@@ -19,6 +19,12 @@ defmodule ArcanumWeb.CommunityLive.Show do
        form: to_form(Communities.change_post(scope, community))
      )
      |> stream(:posts, Communities.list_posts(scope, community), reset: true)}
+  rescue
+    _ in [Ecto.NoResultsError, Ecto.Query.CastError] ->
+      {:noreply,
+       socket
+       |> put_flash(:error, "Community not found or you don't have access.")
+       |> push_navigate(to: ~p"/communities")}
   end
 
   @impl true
@@ -43,7 +49,7 @@ defmodule ArcanumWeb.CommunityLive.Show do
     end
   end
 
-  def handle_event("vote", %{"id" => id, "value" => value}, socket) do
+  def handle_event("vote", %{"id" => id, "vote" => value}, socket) do
     scope = socket.assigns.current_scope
     community = socket.assigns.community
     post = Communities.get_post!(scope, community, id)
@@ -120,7 +126,7 @@ defmodule ArcanumWeb.CommunityLive.Show do
                 id={"upvote-post-#{post.id}"}
                 phx-click="vote"
                 phx-value-id={post.id}
-                phx-value-value={if(post.my_vote == 1, do: 0, else: 1)}
+                phx-value-vote={if(post.my_vote == 1, do: 0, else: 1)}
                 aria-label="Upvote post"
                 aria-pressed={to_string(post.my_vote == 1)}
                 class={["cursor-pointer hover:text-blue-600", post.my_vote == 1 && "text-blue-600"]}
@@ -130,7 +136,7 @@ defmodule ArcanumWeb.CommunityLive.Show do
                 id={"downvote-post-#{post.id}"}
                 phx-click="vote"
                 phx-value-id={post.id}
-                phx-value-value={if(post.my_vote == -1, do: 0, else: -1)}
+                phx-value-vote={if(post.my_vote == -1, do: 0, else: -1)}
                 aria-label="Downvote post"
                 aria-pressed={to_string(post.my_vote == -1)}
                 class={["cursor-pointer hover:text-blue-600", post.my_vote == -1 && "text-blue-600"]}

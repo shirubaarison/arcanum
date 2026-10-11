@@ -21,6 +21,12 @@ defmodule ArcanumWeb.PostLive.Show do
        form: to_form(Communities.change_comment(scope, post))
      )
      |> refresh()}
+  rescue
+    _ in [Ecto.NoResultsError, Ecto.Query.CastError] ->
+      {:noreply,
+       socket
+       |> put_flash(:error, "Post not found or you don't have access.")
+       |> push_navigate(to: ~p"/communities")}
   end
 
   defp refresh(socket) do
@@ -33,6 +39,13 @@ defmodule ArcanumWeb.PostLive.Show do
   end
 
   @impl true
+  def handle_event("validate_comment", %{"comment" => attrs}, socket) do
+    changeset =
+      Communities.change_comment(socket.assigns.current_scope, socket.assigns.post, attrs)
+
+    {:noreply, assign(socket, :form, to_form(Map.put(changeset, :action, :validate)))}
+  end
+
   def handle_event("comment", %{"comment" => attrs}, socket) do
     case Communities.create_comment(
            socket.assigns.current_scope,
@@ -77,14 +90,14 @@ defmodule ArcanumWeb.PostLive.Show do
   def handle_event("cancel_reply", _params, socket),
     do: {:noreply, assign(socket, :reply_to, nil)}
 
-  def handle_event("vote_post", %{"value" => value}, socket) do
+  def handle_event("vote_post", %{"vote" => value}, socket) do
     vote_result(
       socket,
       Communities.vote_post(socket.assigns.current_scope, socket.assigns.post, vote_value(value))
     )
   end
 
-  def handle_event("vote_comment", %{"id" => id, "value" => value}, socket) do
+  def handle_event("vote_comment", %{"id" => id, "vote" => value}, socket) do
     comment =
       Enum.find(
         Communities.list_comments(socket.assigns.current_scope, socket.assigns.post),
@@ -122,7 +135,7 @@ defmodule ArcanumWeb.PostLive.Show do
         <button
           id="upvote-post"
           phx-click="vote_post"
-          phx-value-value={if(@post.my_vote == 1, do: 0, else: 1)}
+          phx-value-vote={if(@post.my_vote == 1, do: 0, else: 1)}
           aria-pressed={to_string(@post.my_vote == 1)}
           class={["cursor-pointer hover:underline", @post.my_vote == 1 && "text-blue-600"]}
         ><.icon name="hero-chevron-up" class="size-3" /> upvote</button>
@@ -130,7 +143,7 @@ defmodule ArcanumWeb.PostLive.Show do
         <button
           id="downvote-post"
           phx-click="vote_post"
-          phx-value-value={if(@post.my_vote == -1, do: 0, else: -1)}
+          phx-value-vote={if(@post.my_vote == -1, do: 0, else: -1)}
           aria-pressed={to_string(@post.my_vote == -1)}
           class={["cursor-pointer hover:underline", @post.my_vote == -1 && "text-blue-600"]}
         ><.icon name="hero-chevron-down" class="size-3" /> downvote</button>
@@ -155,7 +168,7 @@ defmodule ArcanumWeb.PostLive.Show do
               id={"upvote-comment-#{comment.id}"}
               phx-click="vote_comment"
               phx-value-id={comment.id}
-              phx-value-value={if(comment.my_vote == 1, do: 0, else: 1)}
+              phx-value-vote={if(comment.my_vote == 1, do: 0, else: 1)}
               aria-pressed={to_string(comment.my_vote == 1)}
               class={["cursor-pointer hover:underline", comment.my_vote == 1 && "text-blue-600"]}
             ><.icon name="hero-chevron-up" class="size-3" /> upvote</button>
@@ -163,7 +176,7 @@ defmodule ArcanumWeb.PostLive.Show do
               id={"downvote-comment-#{comment.id}"}
               phx-click="vote_comment"
               phx-value-id={comment.id}
-              phx-value-value={if(comment.my_vote == -1, do: 0, else: -1)}
+              phx-value-vote={if(comment.my_vote == -1, do: 0, else: -1)}
               aria-pressed={to_string(comment.my_vote == -1)}
               class={["cursor-pointer hover:underline", comment.my_vote == -1 && "text-blue-600"]}
             ><.icon name="hero-chevron-down" class="size-3" /> downvote</button>
@@ -176,7 +189,13 @@ defmodule ArcanumWeb.PostLive.Show do
           </div>
         </article>
       </div>
-      <.form for={@form} id="comment-form" phx-submit="comment" class="mt-6 max-w-2xl space-y-3">
+      <.form
+        for={@form}
+        id="comment-form"
+        phx-change="validate_comment"
+        phx-submit="comment"
+        class="mt-6 max-w-2xl space-y-3"
+      >
         <p :if={@reply_to} id="reply-target" class="text-xs text-stone-500">
           Replying to comment #{@reply_to}.
           <button
