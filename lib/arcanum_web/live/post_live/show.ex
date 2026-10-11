@@ -116,7 +116,7 @@ defmodule ArcanumWeb.PostLive.Show do
       <.link navigate={~p"/communities/#{@community}"} class="text-xs text-stone-500 hover:underline">← {@community.name}</.link>
       <h1 id="post-title" class="mt-3 break-words text-xl font-bold">{@post.title}</h1>
       <p class="mt-2 break-all text-xs text-stone-500">
-        by {@post.author.email} · {Calendar.strftime(@post.inserted_at, "%b %d, %Y")}
+        by {@post.author.username} · {Calendar.strftime(@post.inserted_at, "%b %d, %Y")}
       </p>
       <div class="mt-3 flex items-center gap-3 text-xs">
         <button
@@ -146,7 +146,7 @@ defmodule ArcanumWeb.PostLive.Show do
           class="border-l border-stone-300 pl-3"
         >
           <p class="break-all text-xs text-stone-500">
-            {comment.author.email} ·
+            {comment.author.username} ·
             <span id={"comment-score-#{comment.id}"}>{comment.score} points</span>
           </p>
           <p class="mt-2 whitespace-pre-wrap break-words">{comment.body}</p>

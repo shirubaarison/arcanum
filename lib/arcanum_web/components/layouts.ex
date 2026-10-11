@@ -48,7 +48,7 @@ defmodule ArcanumWeb.Layouts do
             <.link navigate={~p"/communities/new"} class="hover:underline">create</.link>
           </nav>
           <div class="ml-auto flex gap-3">
-            <.link navigate={~p"/users/settings"} class="hover:underline">account</.link>
+            <.link navigate={~p"/users/settings"} class="hover:underline">{@current_scope.user.username}</.link>
             <.link href={~p"/users/log-out"} method="delete" class="hover:underline">log out</.link>
           </div>
         </header>

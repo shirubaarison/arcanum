@@ -181,7 +181,7 @@ defmodule ArcanumWeb.CommunityLive.Edit do
             id={id}
             class="flex flex-wrap items-center gap-3 py-3"
           >
-            <span class="break-all">{member.user.email}</span>
+            <span class="break-all">{member.user.username}</span>
             <span class="text-xs text-stone-500">{member.role}</span>
             <div
               :if={

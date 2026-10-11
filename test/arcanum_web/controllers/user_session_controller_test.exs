@@ -23,7 +23,12 @@ defmodule ArcanumWeb.UserSessionControllerTest do
       # Now do a logged in request and assert on the menu
       conn = get(conn, ~p"/")
       response = html_response(conn, 200)
-      assert response =~ user.email
+
+      assert response
+             |> LazyHTML.from_document()
+             |> LazyHTML.query("#current-username")
+             |> LazyHTML.text() =~ user.username
+
       assert response =~ ~p"/users/settings"
       assert response =~ ~p"/users/log-out"
     end
@@ -87,7 +92,12 @@ defmodule ArcanumWeb.UserSessionControllerTest do
       # Now do a logged in request and assert on the menu
       conn = get(conn, ~p"/")
       response = html_response(conn, 200)
-      assert response =~ user.email
+
+      assert response
+             |> LazyHTML.from_document()
+             |> LazyHTML.query("#current-username")
+             |> LazyHTML.text() =~ user.username
+
       assert response =~ ~p"/users/settings"
       assert response =~ ~p"/users/log-out"
     end
@@ -98,7 +108,11 @@ defmodule ArcanumWeb.UserSessionControllerTest do
 
       conn =
         post(conn, ~p"/users/log-in", %{
-          "user" => %{"token" => token},
+          "user" => %{
+            "token" => token,
+            "password" => valid_user_password(),
+            "password_confirmation" => valid_user_password()
+          },
           "_action" => "confirmed"
         })
 
@@ -111,7 +125,12 @@ defmodule ArcanumWeb.UserSessionControllerTest do
       # Now do a logged in request and assert on the menu
       conn = get(conn, ~p"/")
       response = html_response(conn, 200)
-      assert response =~ user.email
+
+      assert response
+             |> LazyHTML.from_document()
+             |> LazyHTML.query("#current-username")
+             |> LazyHTML.text() =~ user.username
+
       assert response =~ ~p"/users/settings"
       assert response =~ ~p"/users/log-out"
     end

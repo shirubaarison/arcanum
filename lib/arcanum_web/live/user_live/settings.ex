@@ -16,6 +16,27 @@ defmodule ArcanumWeb.UserLive.Settings do
         </.header>
       </div>
 
+        <.form
+          for={@username_form}
+          id="username-form"
+          phx-submit="update_username"
+          phx-change="validate_username"
+          class="mt-8 space-y-4"
+        >
+          <h2 class="font-bold">Username</h2>
+          <.input
+            field={@username_form[:username]}
+            type="text"
+            label="Username"
+            autocomplete="nickname"
+            minlength="3"
+            maxlength="30"
+            required
+            class="community-input"
+          />
+          <button id="save-username" class="community-button" phx-disable-with="Saving...">Save username</button>
+        </.form>
+
       <.form for={@email_form} id="email_form" phx-submit="update_email" phx-change="validate_email">
         <.input
           field={@email_form[:email]}
@@ -92,6 +113,10 @@ defmodule ArcanumWeb.UserLive.Settings do
       socket
       |> assign(:current_email, user.email)
       |> assign(:email_form, to_form(email_changeset))
+      |> assign(
+        :username_form,
+        to_form(Accounts.change_user_username(socket.assigns.current_scope))
+      )
       |> assign(:password_form, to_form(password_changeset))
       |> assign(:trigger_submit, false)
 
@@ -99,6 +124,32 @@ defmodule ArcanumWeb.UserLive.Settings do
   end
 
   @impl true
+  def handle_event("validate_username", %{"user" => attrs}, socket) do
+    changeset =
+      Accounts.change_user_username(socket.assigns.current_scope, attrs, validate_unique: false)
+
+    {:noreply, assign(socket, :username_form, to_form(Map.put(changeset, :action, :validate)))}
+  end
+
+  def handle_event("update_username", %{"user" => attrs}, socket) do
+    true = Accounts.sudo_mode?(socket.assigns.current_scope.user)
+
+    case Accounts.update_user_username(socket.assigns.current_scope, attrs) do
+      {:ok, user} ->
+        {:noreply,
+         socket
+         |> assign(:current_scope, Arcanum.Accounts.Scope.for_user(user))
+         |> assign(
+           :username_form,
+           to_form(Accounts.change_user_username(Arcanum.Accounts.Scope.for_user(user)))
+         )
+         |> put_flash(:info, "Username updated.")}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, :username_form, to_form(changeset))}
+    end
+  end
+
   def handle_event("validate_email", params, socket) do
     %{"user" => user_params} = params
 

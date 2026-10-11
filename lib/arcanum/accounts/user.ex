@@ -4,6 +4,7 @@ defmodule Arcanum.Accounts.User do
 
   schema "users" do
     field :email, :string
+    field :username, :string
     field :password, :string, virtual: true, redact: true
     field :hashed_password, :string, redact: true
     field :confirmed_at, :utc_datetime
@@ -27,6 +28,31 @@ defmodule Arcanum.Accounts.User do
     user
     |> cast(attrs, [:email])
     |> validate_email(opts)
+  end
+
+  def registration_changeset(user, attrs, opts \\ []) do
+    user
+    |> email_changeset(attrs, opts)
+    |> username_changeset(attrs, opts)
+  end
+
+  def username_changeset(user, attrs, opts \\ []) do
+    changeset =
+      user
+      |> cast(attrs, [:username])
+      |> update_change(:username, &(&1 |> String.trim() |> String.downcase()))
+      |> validate_required([:username])
+      |> validate_length(:username, min: 3, max: 30)
+      |> validate_format(:username, ~r/^[a-z][a-z0-9_]*$/,
+        message: "must start with a letter and contain only letters, numbers, or underscores"
+      )
+      |> unique_constraint(:username)
+
+    if Keyword.get(opts, :validate_unique, true) do
+      unsafe_validate_unique(changeset, :username, Arcanum.Repo)
+    else
+      changeset
+    end
   end
 
   defp validate_email(changeset, opts) do

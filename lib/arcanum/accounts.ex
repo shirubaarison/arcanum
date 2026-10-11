@@ -76,8 +76,24 @@ defmodule Arcanum.Accounts do
   """
   def register_user(attrs) do
     %User{}
-    |> User.email_changeset(attrs)
+    |> User.registration_changeset(attrs)
     |> Repo.insert()
+  end
+
+  def change_user_registration(user, attrs \\ %{}, opts \\ []) do
+    User.registration_changeset(user, attrs, opts)
+  end
+
+  def change_user_username(
+        %Arcanum.Accounts.Scope{user: %User{} = user},
+        attrs \\ %{},
+        opts \\ []
+      ) do
+    User.username_changeset(user, attrs, opts)
+  end
+
+  def update_user_username(%Arcanum.Accounts.Scope{} = scope, attrs) do
+    scope |> change_user_username(attrs) |> Repo.update()
   end
 
   ## Settings
