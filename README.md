@@ -41,6 +41,14 @@ Dialyzer runs in the test environment so it also checks compiled test helpers.
 Its first run builds a dependency type cache (PLT) and can take several minutes.
 The cache is stored under the ignored `_build/` directory; later runs reuse it.
 
+## Continuous integration
+
+GitHub Actions runs on pushes and pull requests, and can also be started manually.
+The workflow checks formatting, compiles without warnings, runs Credo and Dialyzer,
+tests against PostgreSQL 17, and builds the frontend assets. It caches dependencies,
+compiled code, and Dialyzer type information. CI uses Elixir 1.20.4 and Erlang/OTP
+29.0.6, matching the current development environment.
+
 ## Learn more
 
 * Official website: https://www.phoenixframework.org/
