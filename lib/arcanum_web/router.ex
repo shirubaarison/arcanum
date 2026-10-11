@@ -20,7 +20,7 @@ defmodule ArcanumWeb.Router do
   scope "/", ArcanumWeb do
     pipe_through :browser
 
-    get "/", PageController, :home
+    get "/", PageController, :redirect_root
   end
 
   # Other scopes may use custom stacks.
