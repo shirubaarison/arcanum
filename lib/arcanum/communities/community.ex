@@ -12,6 +12,7 @@ defmodule Arcanum.Communities.Community do
     has_many :community_memberships, Arcanum.Communities.CommunityMembership
     has_many :members, through: [:community_memberships, :user]
     has_many :posts, Arcanum.Communities.Post
+    has_many :rooms, Arcanum.Rooms.Room
 
     timestamps(type: :utc_datetime)
   end

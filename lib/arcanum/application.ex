@@ -12,6 +12,7 @@ defmodule Arcanum.Application do
       Arcanum.Repo,
       {DNSCluster, query: Application.get_env(:arcanum, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Arcanum.PubSub},
+      Arcanum.Rooms.Presence,
       # Start a worker by calling: Arcanum.Worker.start_link(arg)
       # {Arcanum.Worker, arg},
       # Start to serve requests, typically the last entry
