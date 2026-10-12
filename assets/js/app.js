@@ -26,12 +26,13 @@ import {hooks as colocatedHooks} from "phoenix-colocated/arcanum"
 import topbar from "../vendor/topbar"
 import LocalTime from "./hooks/local_time"
 import ChatScroll from "./hooks/chat_scroll"
+import HistoryBack from "./hooks/history_back"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks, LocalTime, ChatScroll},
+  hooks: {...colocatedHooks, LocalTime, ChatScroll, HistoryBack},
 })
 
 // Show progress bar on live navigation and form submits

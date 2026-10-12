@@ -156,7 +156,7 @@ defmodule ArcanumWeb.RoomLive.Show do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope} community>
-      <.link id="back-community" navigate={~p"/communities/#{@community}"} class="text-xs text-stone-500 hover:underline">← {@community.name}</.link>
+      <.back_link id="back-community" fallback={~p"/communities/#{@community}"} />
       <div id="chatroom" class="mt-4 grid items-start gap-4 md:grid-cols-[13rem_minmax(0,1fr)]">
         <RoomComponents.sidebar
           rooms={@streams.rooms}

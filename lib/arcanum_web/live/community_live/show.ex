@@ -226,7 +226,7 @@ defmodule ArcanumWeb.CommunityLive.Show do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope} community>
-      <.link navigate={~p"/communities"} class="text-xs text-stone-500 hover:underline">← communities</.link>
+      <.back_link id="community-back" fallback={~p"/communities"} />
       <div class="mt-3 flex flex-wrap items-center gap-4">
         <h1 id="community-name" class="text-xl font-bold">{@community.name}</h1>
         <.link

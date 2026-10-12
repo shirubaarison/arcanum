@@ -187,7 +187,7 @@ defmodule ArcanumWeb.PostLive.Show do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope} community>
-      <.link navigate={~p"/communities/#{@community}"} class="text-xs text-stone-500 hover:underline">← {@community.name}</.link>
+      <.back_link id="post-back" fallback={~p"/communities/#{@community}"} />
       <h1 id="post-title" class="mt-3 break-words text-xl font-bold">{@post.title}</h1>
       <p class="mt-2 break-all text-xs text-stone-500">
         by

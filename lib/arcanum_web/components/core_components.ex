@@ -416,6 +416,23 @@ defmodule ArcanumWeb.CoreComponents do
     """
   end
 
+  @doc "Returns to the previous browser history entry, with a fallback for direct visits."
+  attr :id, :string, required: true
+  attr :fallback, :string, required: true
+
+  def back_link(assigns) do
+    ~H"""
+    <.link
+      id={@id}
+      href={@fallback}
+      phx-hook="HistoryBack"
+      class="inline-flex items-center gap-1 text-xs text-stone-500 transition-colors hover:text-stone-800 hover:underline"
+    >
+      <.icon name="hero-arrow-left" class="size-3" /> Back
+    </.link>
+    """
+  end
+
   @doc """
   Renders a data list.
 

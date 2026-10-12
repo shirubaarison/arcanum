@@ -82,9 +82,7 @@ defmodule ArcanumWeb.UserLive.Profile do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope} community>
-      <.link navigate={~p"/communities"} class="text-xs text-stone-500 hover:underline">
-        ← communities
-      </.link>
+      <.back_link id="profile-back" fallback={~p"/communities"} />
       <section id="user-profile" class="mt-4 border-b border-stone-200 pb-6">
         <div class="flex flex-wrap items-center gap-3">
           <h1 id="profile-username" class="break-all text-xl font-bold">{@profile.username}</h1>

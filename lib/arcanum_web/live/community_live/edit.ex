@@ -193,7 +193,7 @@ defmodule ArcanumWeb.CommunityLive.Edit do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope} community>
-      <.link navigate={~p"/communities/#{@community}"} class="text-xs text-stone-500 hover:underline">← posts</.link>
+      <.back_link id="community-settings-back" fallback={~p"/communities/#{@community}"} />
       <h1 id="community-name" class="mt-3 text-xl font-bold">{@community.name}</h1>
       <p class="mt-2 whitespace-pre-wrap break-words text-stone-600">{@community.description}</p>
       <p class="mt-2 text-xs text-stone-500">your role: {@role}</p>

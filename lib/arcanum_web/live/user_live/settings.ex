@@ -9,7 +9,7 @@ defmodule ArcanumWeb.UserLive.Settings do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope} community>
       <div id="account-settings" class="max-w-xl">
-        <.link navigate={~p"/communities"} class="text-xs text-stone-500 hover:underline">← communities</.link>
+        <.back_link id="settings-back" fallback={~p"/communities"} />
         <h1 class="mt-3 text-xl font-bold">Account Settings</h1>
         <p class="mt-2 text-stone-600">Manage your username, email address and password.</p>
 
