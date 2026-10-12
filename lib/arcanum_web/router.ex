@@ -64,6 +64,8 @@ defmodule ArcanumWeb.Router do
       live "/communities/new", CommunityLive.Index, :new
       live "/communities/:name/edit", CommunityLive.Edit, :edit
       live "/communities/:name/posts/new", CommunityLive.Show, :new_post
+      live "/communities/:name/rooms/new", CommunityLive.Show, :new_room
+      live "/communities/:community_name/rooms/:id", RoomLive.Show, :show
       live "/communities/:community_name/posts/:id", PostLive.Show, :show
       live "/communities/:name", CommunityLive.Show, :show
       live "/:username", UserLive.Profile, :show
